@@ -35,12 +35,14 @@ import androidx.compose.material.icons.rounded.WarningAmber
 import androidx.compose.material3.Button
 import androidx.compose.material3.Icon
 import androidx.compose.material3.LinearProgressIndicator
+import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -93,7 +95,7 @@ fun SplashBrandOverlay(
                 .fillMaxSize()
                 .background(
                     Brush.verticalGradient(
-                        listOf(Color(0xFF030406), Color(0xFF0A0E16), Color(0xFF04060A))
+                        listOf(Color(0xFF030812), Color(0xFF081224), Color(0xFF040A16))
                     )
                 ),
             contentAlignment = Alignment.Center
@@ -104,7 +106,7 @@ fun SplashBrandOverlay(
             ) {
                 BlackBrandLogo(
                     size = 96.dp,
-                    accentGlow = Color(0xFFCBD5E1)
+                    accentGlow = Color(0xFF7DD3FC)
                 )
                 Spacer(modifier = Modifier.height(18.dp))
                 Text(
@@ -157,6 +159,7 @@ fun AppUpdateDialog(
             visible = true,
             enter = fadeIn(tween(220)) + scaleIn(initialScale = 0.94f, animationSpec = tween(220))
         ) {
+            CompositionLocalProvider(LocalContentColor provides MaterialTheme.colorScheme.onSurface) {
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -376,6 +379,7 @@ fun AppUpdateDialog(
                         Text("暂不更新")
                     }
                 }
+            }
             }
         }
     }

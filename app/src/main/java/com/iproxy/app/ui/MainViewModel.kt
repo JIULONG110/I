@@ -14,7 +14,6 @@ import com.iproxy.app.data.model.LogEntry
 import com.iproxy.app.data.model.RoutingMode
 import com.iproxy.app.data.model.ServerNode
 import com.iproxy.app.data.model.Subscription
-import com.iproxy.app.data.model.ThemeMode
 import com.iproxy.app.data.model.VpnRuntimeState
 import com.iproxy.app.data.model.VpnStatus
 import com.iproxy.app.data.repository.AppRepository
@@ -220,17 +219,6 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             is InstallLaunchResult.Failed -> {
                 _updateDownloadError.value = "启动安装失败: ${result.reason}"
             }
-        }
-    }
-
-    fun cycleThemeMode() {
-        updateSettings { current ->
-            val next = when (current.themeMode) {
-                ThemeMode.SYSTEM -> ThemeMode.LIGHT
-                ThemeMode.LIGHT -> ThemeMode.DARK
-                ThemeMode.DARK -> ThemeMode.SYSTEM
-            }
-            current.copy(themeMode = next)
         }
     }
 

@@ -56,7 +56,7 @@ data class AppSettings(
     val perAppMode: PerAppMode = PerAppMode.DISABLED,
     val selectedAppPackages: Set<String> = emptySet(),
     val autoReconnect: Boolean = true,
-    val themeMode: ThemeMode = ThemeMode.SYSTEM,
+    val themeMode: ThemeMode = ThemeMode.DARK,
     val language: AppLanguage = AppLanguage.ZH_CN,
     val customDirectRules: String = "",
     val customProxyRules: String = "",

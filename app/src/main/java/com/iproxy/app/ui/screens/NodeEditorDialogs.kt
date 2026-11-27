@@ -3,6 +3,7 @@ package com.iproxy.app.ui.screens
 import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
@@ -24,7 +25,6 @@ import androidx.compose.material.icons.rounded.ArrowUpward
 import androidx.compose.material.icons.rounded.Check
 import androidx.compose.material.icons.rounded.Delete
 import androidx.compose.material.icons.rounded.UploadFile
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.FilterChip
@@ -58,6 +58,8 @@ import com.iproxy.app.data.model.SecurityMode
 import com.iproxy.app.data.model.ServerNode
 import com.iproxy.app.data.model.Subscription
 import com.iproxy.app.data.model.TransportNetwork
+import com.iproxy.app.ui.components.IProxyAlertDialog
+import com.iproxy.app.ui.theme.CyanAccent
 
 /**
  * 自定义 Xray 配置 / 自定义出站编辑器弹窗
@@ -100,7 +102,7 @@ fun CustomJsonEditorDialog(
         else -> "添加自定义配置"
     }
 
-    AlertDialog(
+    IProxyAlertDialog(
         onDismissRequest = onDismiss,
         title = { Text(titleText) },
         text = {
@@ -245,7 +247,7 @@ fun PolicyGroupEditorDialog(
         }
     }
 
-    AlertDialog(
+    IProxyAlertDialog(
         onDismissRequest = onDismiss,
         title = { Text(if (initial == null) "添加策略组" else "编辑策略组") },
         text = {
@@ -443,7 +445,7 @@ fun ProxyChainEditorDialog(
         }
     }
 
-    AlertDialog(
+    IProxyAlertDialog(
         onDismissRequest = onDismiss,
         title = { Text(if (initial == null) "添加链式代理" else "编辑链式代理") },
         text = {
@@ -655,7 +657,7 @@ fun ProtocolNodeEditorDialog(
         ProtocolType.HTTP
     )
 
-    AlertDialog(
+    IProxyAlertDialog(
         onDismissRequest = onDismiss,
         title = {
             Text(
@@ -1263,7 +1265,9 @@ private fun OrderedChildNodesList(
         childIds.forEachIndexed { idx, id ->
             val target = nodeMap[id]
             Surface(
-                tonalElevation = 2.dp,
+                color = MaterialTheme.colorScheme.surfaceContainer,
+                contentColor = MaterialTheme.colorScheme.onSurface,
+                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
                 shape = MaterialTheme.shapes.small,
                 modifier = Modifier.fillMaxWidth()
             ) {
@@ -1348,7 +1352,7 @@ private fun MultiNodePickerDialog(
         }
     }
 
-    AlertDialog(
+    IProxyAlertDialog(
         onDismissRequest = onDismiss,
         title = { Text(title) },
         text = {
@@ -1362,7 +1366,12 @@ private fun MultiNodePickerDialog(
                 candidates.forEach { candidate ->
                     val isChecked = !allowDuplicates && candidate.id in pickedOrder
                     Surface(
-                        tonalElevation = if (isChecked) 3.dp else 1.dp,
+                        color = if (isChecked) MaterialTheme.colorScheme.secondaryContainer else MaterialTheme.colorScheme.surfaceContainer,
+                        contentColor = MaterialTheme.colorScheme.onSurface,
+                        border = BorderStroke(
+                            1.dp,
+                            if (isChecked) CyanAccent.copy(alpha = 0.65f) else MaterialTheme.colorScheme.outlineVariant
+                        ),
                         shape = MaterialTheme.shapes.small,
                         modifier = Modifier
                             .fillMaxWidth()

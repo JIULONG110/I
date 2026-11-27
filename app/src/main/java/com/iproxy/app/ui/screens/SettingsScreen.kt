@@ -15,11 +15,9 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.SystemUpdate
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
@@ -29,7 +27,6 @@ import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
-import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -43,9 +40,11 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.iproxy.app.BuildConfig
 import com.iproxy.app.data.model.AppSettings
-import com.iproxy.app.data.model.ThemeMode
 import com.iproxy.app.ui.components.BlackBrandLogo
+import com.iproxy.app.ui.components.IProxyAlertDialog
 import com.iproxy.app.ui.components.LiquidGlassCard
+import com.iproxy.app.ui.components.darkOutlinedTextFieldColors
+import com.iproxy.app.ui.components.darkTopAppBarColors
 import kotlinx.coroutines.launch
 import libv2ray.Libv2ray
 
@@ -75,10 +74,11 @@ fun SettingsScreen(
 
     Scaffold(
         containerColor = Color.Transparent,
+        contentColor = MaterialTheme.colorScheme.onBackground,
         topBar = {
             TopAppBar(
                 title = { Text("设置") },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.Transparent)
+                colors = darkTopAppBarColors()
             )
         }
     ) { padding ->
@@ -90,23 +90,7 @@ fun SettingsScreen(
                 .padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            // 1. 外观与日夜间模式（置顶方便调节）
-            LiquidGlassCard(modifier = Modifier.fillMaxWidth()) {
-                Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                    Text("日间 / 夜间模式与液态外观", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        ThemeMode.entries.forEach { mode ->
-                            FilterChip(
-                                selected = settings.themeMode == mode,
-                                onClick = { onUpdateSettings { it.copy(themeMode = mode) } },
-                                label = { Text(mode.title) }
-                            )
-                        }
-                    }
-                }
-            }
-
-            // 2. 核心网络开关
+            // 1. 核心网络开关
             LiquidGlassCard(modifier = Modifier.fillMaxWidth()) {
                 Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                     Text("网络与协议增强", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
@@ -150,16 +134,18 @@ fun SettingsScreen(
                 }
             }
 
-            // 3. DNS 与端口参数
+            // 2. DNS 与端口参数
             LiquidGlassCard(modifier = Modifier.fillMaxWidth()) {
                 Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                     Text("DNS 与本地端口", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
+                    val fieldColors = darkOutlinedTextFieldColors()
 
                     OutlinedTextField(
                         value = remoteDns,
                         onValueChange = { remoteDns = it },
                         label = { Text("境外代理 DNS (例如 1.1.1.1 或 8.8.8.8)") },
                         singleLine = true,
+                        colors = fieldColors,
                         modifier = Modifier.fillMaxWidth()
                     )
                     OutlinedTextField(
@@ -167,6 +153,7 @@ fun SettingsScreen(
                         onValueChange = { directDns = it },
                         label = { Text("国内直连 DNS (例如 223.5.5.5)") },
                         singleLine = true,
+                        colors = fieldColors,
                         modifier = Modifier.fillMaxWidth()
                     )
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -175,6 +162,7 @@ fun SettingsScreen(
                             onValueChange = { socksPortStr = it.filter { c -> c.isDigit() } },
                             label = { Text("SOCKS5 端口") },
                             singleLine = true,
+                            colors = fieldColors,
                             modifier = Modifier.weight(1f)
                         )
                         OutlinedTextField(
@@ -182,6 +170,7 @@ fun SettingsScreen(
                             onValueChange = { httpPortStr = it.filter { c -> c.isDigit() } },
                             label = { Text("HTTP 端口") },
                             singleLine = true,
+                            colors = fieldColors,
                             modifier = Modifier.weight(1f)
                         )
                         OutlinedTextField(
@@ -189,6 +178,7 @@ fun SettingsScreen(
                             onValueChange = { mtuStr = it.filter { c -> c.isDigit() } },
                             label = { Text("MTU") },
                             singleLine = true,
+                            colors = fieldColors,
                             modifier = Modifier.weight(1f)
                         )
                     }
@@ -197,6 +187,7 @@ fun SettingsScreen(
                         onValueChange = { speedUrl = it },
                         label = { Text("真连接测速目标 URL") },
                         singleLine = true,
+                        colors = fieldColors,
                         modifier = Modifier.fillMaxWidth()
                     )
                     Button(
@@ -294,7 +285,7 @@ fun SettingsScreen(
 
     if (showImportBackupDialog) {
         var jsonInput by remember { mutableStateOf("") }
-        AlertDialog(
+        IProxyAlertDialog(
             onDismissRequest = { showImportBackupDialog = false },
             title = { Text("恢复备份 JSON") },
             text = {
@@ -304,6 +295,7 @@ fun SettingsScreen(
                     label = { Text("粘贴之前导出的备份 JSON") },
                     minLines = 5,
                     maxLines = 10,
+                    colors = darkOutlinedTextFieldColors(),
                     modifier = Modifier.fillMaxWidth()
                 )
             },
