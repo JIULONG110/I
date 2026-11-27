@@ -64,7 +64,10 @@ class AppStorage(private val context: Context) {
     fun readNodesSync(): List<ServerNode> {
         val raw = mmkv.decodeString(KEY_NODES_JSON) ?: return emptyList()
         val type = object : TypeToken<List<ServerNode>>() {}.type
-        return runCatching { gson.fromJson<List<ServerNode>>(raw, type) }.getOrNull() ?: emptyList()
+        return runCatching { gson.fromJson<List<ServerNode>>(raw, type) }
+            .getOrNull()
+            .orEmpty()
+            .map { it.sanitized() }
     }
 
     fun saveNodesSync(nodes: List<ServerNode>) {
@@ -145,11 +148,12 @@ class AppStorage(private val context: Context) {
     suspend fun importBackupJson(json: String): Boolean {
         val payload = runCatching { gson.fromJson(json, BackupPayload::class.java) }.getOrNull()
             ?: return false
-        saveNodesSync(payload.nodes)
+        val sanitizedNodes = payload.nodes.map { it.sanitized() }
+        saveNodesSync(sanitizedNodes)
         saveSubscriptionsSync(payload.subscriptions)
         updateSettings { payload.settings }
-        if (getSelectedNodeIdSync() == null && payload.nodes.isNotEmpty()) {
-            setSelectedNodeIdSync(payload.nodes.first().id)
+        if (getSelectedNodeIdSync() == null && sanitizedNodes.isNotEmpty()) {
+            setSelectedNodeIdSync(sanitizedNodes.first().id)
         }
         return true
     }

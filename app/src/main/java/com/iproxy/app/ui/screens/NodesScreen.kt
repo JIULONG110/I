@@ -1,5 +1,8 @@
 package com.iproxy.app.ui.screens
 
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.PickVisualMediaRequest
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
@@ -12,6 +15,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -19,22 +23,26 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.Sort
 import androidx.compose.material.icons.rounded.Add
 import androidx.compose.material.icons.rounded.AddLink
 import androidx.compose.material.icons.rounded.CheckCircle
 import androidx.compose.material.icons.rounded.CleaningServices
+import androidx.compose.material.icons.rounded.Code
 import androidx.compose.material.icons.rounded.ContentCopy
 import androidx.compose.material.icons.rounded.ContentPasteGo
 import androidx.compose.material.icons.rounded.Delete
+import androidx.compose.material.icons.rounded.Dns
 import androidx.compose.material.icons.rounded.Edit
+import androidx.compose.material.icons.rounded.PhotoLibrary
 import androidx.compose.material.icons.rounded.QrCode2
 import androidx.compose.material.icons.rounded.QrCodeScanner
 import androidx.compose.material.icons.rounded.Refresh
+import androidx.compose.material.icons.rounded.Route
 import androidx.compose.material.icons.rounded.Search
 import androidx.compose.material.icons.rounded.Speed
+import androidx.compose.material.icons.rounded.Tune
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Checkbox
@@ -43,6 +51,7 @@ import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FloatingActionButton
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
@@ -63,20 +72,26 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.iproxy.app.core.util.FormatUtils
 import com.iproxy.app.data.model.ProtocolType
-import com.iproxy.app.data.model.SecurityMode
 import com.iproxy.app.data.model.ServerNode
 import com.iproxy.app.data.model.Subscription
-import com.iproxy.app.data.model.TransportNetwork
 import com.iproxy.app.ui.QrCodeHelper
 import com.iproxy.app.ui.components.LiquidGlassCard
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
+
+private sealed interface ActiveNodeEditor {
+    data class CustomJson(val isOutbound: Boolean, val node: ServerNode? = null) : ActiveNodeEditor
+    data class PolicyGroup(val node: ServerNode? = null) : ActiveNodeEditor
+    data class ProxyChain(val node: ServerNode? = null) : ActiveNodeEditor
+    data class StandardProtocol(val protocol: ProtocolType, val node: ServerNode? = null) : ActiveNodeEditor
+}
 
 /**
  * 节点与订阅管理页面
@@ -99,6 +114,8 @@ fun NodesScreen(
     onSortByLatency: () -> Unit,
     onClearUnreachable: () -> Unit,
     onImportClipboard: () -> Unit,
+    onImportRawText: (String) -> Unit,
+    onShowMessage: (String) -> Unit,
     onOpenQrScan: () -> Unit,
     onAddSubscription: (String, String, Boolean) -> Unit,
     onRefreshSubscription: (String) -> Unit,
@@ -107,13 +124,22 @@ fun NodesScreen(
     onExportShareLink: (ServerNode) -> String,
     onCopyText: (String, String) -> Unit
 ) {
+    val context = LocalContext.current
     var searchQuery by remember { mutableStateOf("") }
     var activeGroupFilter by remember { mutableStateOf<String?>("ALL") } // "ALL", "LOCAL", or sub.id
     var showAddMenu by remember { mutableStateOf(false) }
     var showSubDialog by remember(showAddSubDialogInitial) { mutableStateOf(showAddSubDialogInitial) }
-    var editingNode by remember { mutableStateOf<ServerNode?>(null) }
-    var showEditNodeDialog by remember { mutableStateOf(false) }
+    var activeEditor by remember { mutableStateOf<ActiveNodeEditor?>(null) }
     var qrPreviewNode by remember { mutableStateOf<ServerNode?>(null) }
+
+    val qrImagePickerLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.PickVisualMedia()
+    ) { uri ->
+        if (uri == null) return@rememberLauncherForActivityResult
+        QrCodeHelper.decodeFromUri(context, uri)
+            .onSuccess { onImportRawText(it) }
+            .onFailure { onShowMessage(it.message ?: "读取图片失败") }
+    }
 
     val filteredNodes = remember(nodes, searchQuery, activeGroupFilter) {
         nodes.filter { node ->
@@ -128,6 +154,20 @@ fun NodesScreen(
                 node.protocol.displayName.contains(searchQuery, ignoreCase = true)
             matchGroup && matchSearch
         }
+    }
+
+    val menuProtocolEntries = remember {
+        listOf(
+            ProtocolType.VMESS,
+            ProtocolType.VLESS,
+            ProtocolType.SHADOWSOCKS,
+            ProtocolType.TROJAN,
+            ProtocolType.HYSTERIA2,
+            ProtocolType.WIREGUARD,
+            ProtocolType.MASQUE,
+            ProtocolType.SOCKS,
+            ProtocolType.HTTP
+        )
     }
 
     Scaffold(
@@ -157,9 +197,13 @@ fun NodesScreen(
                 FloatingActionButton(onClick = { showAddMenu = true }) {
                     Icon(Icons.Rounded.Add, contentDescription = "添加节点或订阅")
                 }
-                DropdownMenu(expanded = showAddMenu, onDismissRequest = { showAddMenu = false }) {
+                DropdownMenu(
+                    expanded = showAddMenu,
+                    onDismissRequest = { showAddMenu = false },
+                    modifier = Modifier.heightIn(max = 480.dp)
+                ) {
                     DropdownMenuItem(
-                        text = { Text("从剪贴板导入节点 / 订阅") },
+                        text = { Text("从剪贴板导入分享链接") },
                         leadingIcon = { Icon(Icons.Rounded.ContentPasteGo, null) },
                         onClick = {
                             showAddMenu = false
@@ -167,11 +211,21 @@ fun NodesScreen(
                         }
                     )
                     DropdownMenuItem(
-                        text = { Text("扫描二维码导入") },
+                        text = { Text("扫描相机二维码") },
                         leadingIcon = { Icon(Icons.Rounded.QrCodeScanner, null) },
                         onClick = {
                             showAddMenu = false
                             onOpenQrScan()
+                        }
+                    )
+                    DropdownMenuItem(
+                        text = { Text("扫描图片中的二维码") },
+                        leadingIcon = { Icon(Icons.Rounded.PhotoLibrary, null) },
+                        onClick = {
+                            showAddMenu = false
+                            qrImagePickerLauncher.launch(
+                                PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)
+                            )
                         }
                     )
                     DropdownMenuItem(
@@ -182,15 +236,53 @@ fun NodesScreen(
                             showSubDialog = true
                         }
                     )
+
+                    HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp))
+
                     DropdownMenuItem(
-                        text = { Text("手动创建节点") },
-                        leadingIcon = { Icon(Icons.Rounded.Edit, null) },
+                        text = { Text("添加自定义配置") },
+                        leadingIcon = { Icon(Icons.Rounded.Code, null) },
                         onClick = {
                             showAddMenu = false
-                            editingNode = null
-                            showEditNodeDialog = true
+                            activeEditor = ActiveNodeEditor.CustomJson(isOutbound = false)
                         }
                     )
+                    DropdownMenuItem(
+                        text = { Text("添加策略组") },
+                        leadingIcon = { Icon(Icons.Rounded.Tune, null) },
+                        onClick = {
+                            showAddMenu = false
+                            activeEditor = ActiveNodeEditor.PolicyGroup()
+                        }
+                    )
+                    DropdownMenuItem(
+                        text = { Text("添加链式代理") },
+                        leadingIcon = { Icon(Icons.Rounded.Route, null) },
+                        onClick = {
+                            showAddMenu = false
+                            activeEditor = ActiveNodeEditor.ProxyChain()
+                        }
+                    )
+                    DropdownMenuItem(
+                        text = { Text("添加自定义出站") },
+                        leadingIcon = { Icon(Icons.Rounded.Dns, null) },
+                        onClick = {
+                            showAddMenu = false
+                            activeEditor = ActiveNodeEditor.CustomJson(isOutbound = true)
+                        }
+                    )
+
+                    HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp))
+
+                    menuProtocolEntries.forEach { proto ->
+                        DropdownMenuItem(
+                            text = { Text("添加 [${proto.displayName}]") },
+                            onClick = {
+                                showAddMenu = false
+                                activeEditor = ActiveNodeEditor.StandardProtocol(protocol = proto)
+                            }
+                        )
+                    }
                 }
             }
         }
@@ -262,7 +354,7 @@ fun NodesScreen(
                     contentAlignment = Alignment.Center
                 ) {
                     Text(
-                        text = "暂无匹配节点，点击右下角「+」导入",
+                        text = "暂无匹配节点，点击右下角「+」添加或导入",
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -281,8 +373,13 @@ fun NodesScreen(
                             onSelect = { onSelectNode(node.id) },
                             onMeasure = { onMeasureSingle(node.id) },
                             onEdit = {
-                                editingNode = node
-                                showEditNodeDialog = true
+                                activeEditor = when (node.protocol) {
+                                    ProtocolType.CUSTOM_JSON -> ActiveNodeEditor.CustomJson(isOutbound = false, node = node)
+                                    ProtocolType.CUSTOM_OUTBOUND -> ActiveNodeEditor.CustomJson(isOutbound = true, node = node)
+                                    ProtocolType.POLICY_GROUP -> ActiveNodeEditor.PolicyGroup(node = node)
+                                    ProtocolType.PROXY_CHAIN -> ActiveNodeEditor.ProxyChain(node = node)
+                                    else -> ActiveNodeEditor.StandardProtocol(protocol = node.protocol, node = node)
+                                }
                             },
                             onShareQr = { qrPreviewNode = node },
                             onDelete = { onDeleteNode(node.id) }
@@ -307,15 +404,53 @@ fun NodesScreen(
         )
     }
 
-    if (showEditNodeDialog) {
-        NodeEditorDialog(
-            initial = editingNode,
-            onDismiss = { showEditNodeDialog = false },
-            onSave = { node ->
-                showEditNodeDialog = false
-                onSaveNode(node)
-            }
-        )
+    when (val editor = activeEditor) {
+        is ActiveNodeEditor.CustomJson -> {
+            CustomJsonEditorDialog(
+                isOutbound = editor.isOutbound,
+                initial = editor.node,
+                onDismiss = { activeEditor = null },
+                onSave = { node ->
+                    activeEditor = null
+                    onSaveNode(node)
+                }
+            )
+        }
+        is ActiveNodeEditor.PolicyGroup -> {
+            PolicyGroupEditorDialog(
+                initial = editor.node,
+                allNodes = nodes,
+                subscriptions = subscriptions,
+                onDismiss = { activeEditor = null },
+                onSave = { node ->
+                    activeEditor = null
+                    onSaveNode(node)
+                }
+            )
+        }
+        is ActiveNodeEditor.ProxyChain -> {
+            ProxyChainEditorDialog(
+                initial = editor.node,
+                allNodes = nodes,
+                onDismiss = { activeEditor = null },
+                onSave = { node ->
+                    activeEditor = null
+                    onSaveNode(node)
+                }
+            )
+        }
+        is ActiveNodeEditor.StandardProtocol -> {
+            ProtocolNodeEditorDialog(
+                initialProtocol = editor.protocol,
+                initialNode = editor.node,
+                onDismiss = { activeEditor = null },
+                onSave = { node ->
+                    activeEditor = null
+                    onSaveNode(node)
+                }
+            )
+        }
+        null -> Unit
     }
 
     qrPreviewNode?.let { node ->
@@ -337,19 +472,19 @@ fun NodesScreen(
                     Text(
                         text = shareLink,
                         style = MaterialTheme.typography.bodySmall,
-                        maxLines = 3,
+                        maxLines = 4,
                         overflow = TextOverflow.Ellipsis
                     )
                 }
             },
             confirmButton = {
                 Button(onClick = {
-                    onCopyText(shareLink, "已复制节点分享链接")
+                    onCopyText(shareLink, "已复制节点分享内容")
                     qrPreviewNode = null
                 }) {
                     Icon(Icons.Rounded.ContentCopy, null, modifier = Modifier.size(16.dp))
                     Spacer(modifier = Modifier.width(6.dp))
-                    Text("复制链接")
+                    Text("复制内容")
                 }
             },
             dismissButton = {
@@ -472,7 +607,7 @@ private fun NodeItemCard(
                         )
                     }
                     Text(
-                        text = "${node.server}:${node.port}",
+                        text = node.displayAddressSummary(),
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         maxLines = 1,
@@ -486,7 +621,7 @@ private fun NodeItemCard(
                 Icon(Icons.Rounded.Speed, contentDescription = "测速", modifier = Modifier.size(18.dp))
             }
             IconButton(onClick = onShareQr, modifier = Modifier.size(34.dp)) {
-                Icon(Icons.Rounded.QrCode2, contentDescription = "二维码分享", modifier = Modifier.size(18.dp))
+                Icon(Icons.Rounded.QrCode2, contentDescription = "分享 / 二维码", modifier = Modifier.size(18.dp))
             }
             IconButton(onClick = onEdit, modifier = Modifier.size(34.dp)) {
                 Icon(Icons.Rounded.Edit, contentDescription = "编辑", modifier = Modifier.size(18.dp))
@@ -543,209 +678,6 @@ private fun AddSubscriptionDialog(
                 enabled = url.trim().startsWith("http", ignoreCase = true)
             ) {
                 Text("拉取并保存")
-            }
-        },
-        dismissButton = {
-            TextButton(onClick = onDismiss) { Text("取消") }
-        }
-    )
-}
-
-@Composable
-private fun NodeEditorDialog(
-    initial: ServerNode?,
-    onDismiss: () -> Unit,
-    onSave: (ServerNode) -> Unit
-) {
-    var protocol by remember { mutableStateOf(initial?.protocol ?: ProtocolType.VLESS) }
-    var name by remember { mutableStateOf(initial?.name ?: "") }
-    var server by remember { mutableStateOf(initial?.server ?: "") }
-    var portStr by remember { mutableStateOf(initial?.port?.toString() ?: "443") }
-    var credential by remember { mutableStateOf(initial?.passwordOrUuid ?: "") }
-    var sni by remember { mutableStateOf(initial?.sni ?: "") }
-    var network by remember { mutableStateOf(initial?.network ?: TransportNetwork.TCP) }
-    var security by remember { mutableStateOf(initial?.security ?: SecurityMode.TLS) }
-    var path by remember { mutableStateOf(initial?.path ?: "") }
-    var realityPbk by remember { mutableStateOf(initial?.realityPublicKey ?: "") }
-    var realitySid by remember { mutableStateOf(initial?.realityShortId ?: "") }
-    var method by remember { mutableStateOf(initial?.method ?: "aes-128-gcm") }
-    var customJson by remember { mutableStateOf(initial?.customRawJson ?: "") }
-
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text(if (initial == null) "手动创建节点" else "编辑节点") },
-        text = {
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .verticalScroll(rememberScrollState()),
-                verticalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                Row(
-                    modifier = Modifier.horizontalScroll(rememberScrollState()),
-                    horizontalArrangement = Arrangement.spacedBy(6.dp)
-                ) {
-                    listOf(
-                        ProtocolType.VLESS,
-                        ProtocolType.VMESS,
-                        ProtocolType.TROJAN,
-                        ProtocolType.SHADOWSOCKS,
-                        ProtocolType.HYSTERIA2,
-                        ProtocolType.SOCKS,
-                        ProtocolType.CUSTOM_JSON
-                    ).forEach { p ->
-                        FilterChip(
-                            selected = protocol == p,
-                            onClick = { protocol = p },
-                            label = { Text(p.displayName) }
-                        )
-                    }
-                }
-
-                OutlinedTextField(
-                    value = name,
-                    onValueChange = { name = it },
-                    label = { Text("节点名称") },
-                    singleLine = true,
-                    modifier = Modifier.fillMaxWidth()
-                )
-
-                if (protocol == ProtocolType.CUSTOM_JSON) {
-                    OutlinedTextField(
-                        value = customJson,
-                        onValueChange = { customJson = it },
-                        label = { Text("完整 Xray JSON 配置") },
-                        minLines = 6,
-                        maxLines = 12,
-                        modifier = Modifier.fillMaxWidth()
-                    )
-                } else {
-                    OutlinedTextField(
-                        value = server,
-                        onValueChange = { server = it },
-                        label = { Text("服务器地址 (域名或 IP)") },
-                        singleLine = true,
-                        modifier = Modifier.fillMaxWidth()
-                    )
-                    OutlinedTextField(
-                        value = portStr,
-                        onValueChange = { portStr = it.filter { ch -> ch.isDigit() } },
-                        label = { Text("端口") },
-                        singleLine = true,
-                        modifier = Modifier.fillMaxWidth()
-                    )
-                    OutlinedTextField(
-                        value = credential,
-                        onValueChange = { credential = it },
-                        label = {
-                            Text(
-                                when (protocol) {
-                                    ProtocolType.VLESS, ProtocolType.VMESS -> "UUID"
-                                    else -> "密码 / 认证密钥"
-                                }
-                            )
-                        },
-                        singleLine = true,
-                        modifier = Modifier.fillMaxWidth()
-                    )
-                    if (protocol == ProtocolType.SHADOWSOCKS) {
-                        OutlinedTextField(
-                            value = method,
-                            onValueChange = { method = it },
-                            label = { Text("加密方式 (如 aes-256-gcm / 2022-blake3-aes-128-gcm)") },
-                            singleLine = true,
-                            modifier = Modifier.fillMaxWidth()
-                        )
-                    }
-                    if (protocol == ProtocolType.VLESS || protocol == ProtocolType.VMESS || protocol == ProtocolType.TROJAN) {
-                        Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                            listOf(TransportNetwork.TCP, TransportNetwork.WS, TransportNetwork.GRPC, TransportNetwork.XHTTP).forEach { net ->
-                                FilterChip(
-                                    selected = network == net,
-                                    onClick = { network = net },
-                                    label = { Text(net.value.uppercase()) }
-                                )
-                            }
-                        }
-                        Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                            SecurityMode.entries.forEach { sec ->
-                                FilterChip(
-                                    selected = security == sec,
-                                    onClick = { security = sec },
-                                    label = { Text(sec.value.uppercase()) }
-                                )
-                            }
-                        }
-                        if (network == TransportNetwork.WS || network == TransportNetwork.XHTTP) {
-                            OutlinedTextField(
-                                value = path,
-                                onValueChange = { path = it },
-                                label = { Text("路径 (如 /ws)") },
-                                singleLine = true,
-                                modifier = Modifier.fillMaxWidth()
-                            )
-                        }
-                    }
-                    OutlinedTextField(
-                        value = sni,
-                        onValueChange = { sni = it },
-                        label = { Text("SNI / 伪装域名（可选）") },
-                        singleLine = true,
-                        modifier = Modifier.fillMaxWidth()
-                    )
-                    if (security == SecurityMode.REALITY) {
-                        OutlinedTextField(
-                            value = realityPbk,
-                            onValueChange = { realityPbk = it },
-                            label = { Text("Reality PublicKey (pbk)") },
-                            singleLine = true,
-                            modifier = Modifier.fillMaxWidth()
-                        )
-                        OutlinedTextField(
-                            value = realitySid,
-                            onValueChange = { realitySid = it },
-                            label = { Text("Reality ShortId (sid)") },
-                            singleLine = true,
-                            modifier = Modifier.fillMaxWidth()
-                        )
-                    }
-                }
-            }
-        },
-        confirmButton = {
-            val validPort = portStr.toIntOrNull()?.takeIf { it in 1..65535 } ?: 443
-            val isValid = if (protocol == ProtocolType.CUSTOM_JSON) {
-                customJson.isNotBlank()
-            } else {
-                server.isNotBlank()
-            }
-            Button(
-                enabled = isValid,
-                onClick = {
-                    val saved = (initial ?: ServerNode(
-                        name = name.ifBlank { "$server:$validPort" },
-                        protocol = protocol,
-                        server = server.trim(),
-                        port = validPort
-                    )).copy(
-                        name = name.ifBlank { "$server:$validPort" },
-                        protocol = protocol,
-                        server = if (protocol == ProtocolType.CUSTOM_JSON) "custom" else server.trim(),
-                        port = validPort,
-                        passwordOrUuid = credential.trim(),
-                        method = method.trim(),
-                        network = if (protocol == ProtocolType.HYSTERIA2) TransportNetwork.HYSTERIA else network,
-                        security = if (protocol == ProtocolType.HYSTERIA2) SecurityMode.TLS else security,
-                        sni = sni.trim(),
-                        path = path.trim(),
-                        realityPublicKey = realityPbk.trim(),
-                        realityShortId = realitySid.trim(),
-                        customRawJson = customJson.trim()
-                    )
-                    onSave(saved)
-                }
-            ) {
-                Text("保存")
             }
         },
         dismissButton = {

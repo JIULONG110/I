@@ -3,7 +3,7 @@ package com.iproxy.app.data.model
 import java.util.UUID
 
 /**
- * 支持的代理协议类型
+ * 支持的代理协议与组合配置类型
  */
 enum class ProtocolType(val displayName: String, val scheme: String) {
     VLESS("VLESS", "vless"),
@@ -12,9 +12,24 @@ enum class ProtocolType(val displayName: String, val scheme: String) {
     SHADOWSOCKS("Shadowsocks", "ss"),
     HYSTERIA2("Hysteria2", "hysteria2"),
     WIREGUARD("WireGuard", "wireguard"),
-    SOCKS("SOCKS5", "socks"),
+    MASQUE("MASQUE", "masque"),
+    SOCKS("SOCKS", "socks"),
     HTTP("HTTP", "http"),
-    CUSTOM_JSON("自定义JSON", "json")
+    POLICY_GROUP("策略组", "policygroup"),
+    PROXY_CHAIN("链式代理", "proxychain"),
+    CUSTOM_OUTBOUND("自定义出站", "outbound"),
+    CUSTOM_JSON("自定义配置", "json")
+}
+
+/**
+ * 策略组调度策略
+ */
+enum class PolicyStrategy(val value: String, val displayName: String) {
+    LEAST_PING("leastPing", "最低延迟"),
+    FALLBACK("fallback", "故障转移"),
+    LEAST_LOAD("leastLoad", "负载均衡"),
+    ROUND_ROBIN("roundRobin", "轮询"),
+    RANDOM("random", "随机")
 }
 
 /**
@@ -28,7 +43,8 @@ enum class TransportNetwork(val value: String) {
     XHTTP("xhttp"),
     HTTPUPGRADE("httpupgrade"),
     QUIC("quic"),
-    HYSTERIA("hysteria");
+    HYSTERIA("hysteria"),
+    MASQUE("masque");
 
     companion object {
         fun fromString(raw: String?): TransportNetwork {
@@ -62,7 +78,7 @@ enum class SecurityMode(val value: String) {
 }
 
 /**
- * 节点配置统一模型，兼容主流协议分享链接、订阅与自定义 JSON
+ * 节点配置统一模型，兼容主流协议分享链接、订阅、策略组、链式代理与自定义配置
  */
 data class ServerNode(
     val id: String = UUID.randomUUID().toString(),
@@ -71,7 +87,7 @@ data class ServerNode(
     val server: String,
     val port: Int,
     val subscriptionId: String? = null,
-    // 认证与密码字段（VLESS/VMess UUID、Trojan/SS/Hy2 密码等）
+    // 认证与密码字段（VLESS/VMess UUID、Trojan/SS/Hy2/SOCKS/HTTP/MASQUE 密码等）
     val passwordOrUuid: String = "",
     val username: String = "",
     val method: String = "aes-128-gcm",
@@ -109,7 +125,19 @@ data class ServerNode(
     val wgLocalAddress: String = "10.0.0.2/32",
     val wgReserved: String = "",
     val wgMtu: Int = 1420,
-    // 自定义完整 Xray JSON（当 protocol == CUSTOM_JSON 时使用）
+    // MASQUE 专用参数
+    val masquePath: String = "",
+    val masqueHeaders: String = "",
+    val masqueRemoteDns: String = "",
+    val masqueWarpPrivateKey: String = "",
+    val masqueWarpPublicKey: String = "",
+    val masqueWarpAddress: String = "",
+    // 策略组与链式代理参数
+    val policyStrategy: PolicyStrategy = PolicyStrategy.LEAST_PING,
+    val childNodeIds: List<String> = emptyList(),
+    val policySubscriptionId: String = "",
+    val policyFilter: String = "",
+    // 自定义配置 / 自定义出站 Xray JSON
     val customRawJson: String = "",
     // 运行态元数据
     val latencyMs: Long? = null,
@@ -117,14 +145,109 @@ data class ServerNode(
     val createdAt: Long = System.currentTimeMillis()
 ) {
     /**
+     * 是否为组合型节点（策略组或链式代理）
+     */
+    fun isGroupNode(): Boolean =
+        protocol == ProtocolType.POLICY_GROUP || protocol == ProtocolType.PROXY_CHAIN
+
+    /**
      * 用于页面展示的协议与安全标签
      */
-    fun badgeText(): String = buildString {
-        append(protocol.displayName)
-        if (security == SecurityMode.REALITY) {
-            append("·REALITY")
-        } else if (security == SecurityMode.TLS && protocol != ProtocolType.HYSTERIA2) {
-            append("·TLS")
+    fun badgeText(): String = when (protocol) {
+        ProtocolType.POLICY_GROUP -> "策略组·${safePolicyStrategy().displayName}"
+        ProtocolType.PROXY_CHAIN -> "链式代理·${safeChildNodeIds().size}跳"
+        ProtocolType.CUSTOM_OUTBOUND -> "自定义出站"
+        ProtocolType.CUSTOM_JSON -> "自定义配置"
+        ProtocolType.MASQUE -> if (safeStr(masqueWarpPrivateKey).isNotBlank()) "MASQUE·WARP" else "MASQUE·TLS"
+        else -> buildString {
+            append(protocol.displayName)
+            if (security == SecurityMode.REALITY) {
+                append("·REALITY")
+            } else if (security == SecurityMode.TLS && protocol != ProtocolType.HYSTERIA2) {
+                append("·TLS")
+            }
         }
+    }
+
+    /**
+     * 节点列表与首页展示的副标题（替代生硬的 custom:443）
+     */
+    fun displayAddressSummary(): String = when (protocol) {
+        ProtocolType.POLICY_GROUP -> {
+            val childCount = safeChildNodeIds().size
+            val subPart = if (safeStr(policySubscriptionId).isNotBlank()) "订阅动态筛选" else ""
+            when {
+                childCount > 0 && subPart.isNotEmpty() -> "$childCount 个固定节点 + $subPart"
+                childCount > 0 -> "包含 $childCount 个节点"
+                subPart.isNotEmpty() -> subPart
+                else -> "暂未选择子节点"
+            }
+        }
+        ProtocolType.PROXY_CHAIN -> {
+            val hopCount = safeChildNodeIds().size
+            if (hopCount > 0) "共 $hopCount 跳中转链路" else "暂未配置链路节点"
+        }
+        ProtocolType.CUSTOM_OUTBOUND -> "Xray Outbound JSON"
+        ProtocolType.CUSTOM_JSON -> "完整 Xray 配置 JSON"
+        else -> "$server:$port"
+    }
+
+    /**
+     * 兼容旧版本 Gson 反序列化缺失字段时 Unsafe 置 null 的安全清洗
+     */
+    fun sanitized(): ServerNode = copy(
+        passwordOrUuid = safeStr(passwordOrUuid),
+        username = safeStr(username),
+        method = safeStr(method, "aes-128-gcm"),
+        flow = safeStr(flow),
+        encryption = safeStr(encryption, "none"),
+        network = safeObj(network, TransportNetwork.TCP),
+        headerType = safeStr(headerType, "none"),
+        host = safeStr(host),
+        path = safeStr(path),
+        xhttpMode = safeStr(xhttpMode),
+        grpcServiceName = safeStr(grpcServiceName),
+        grpcMode = safeStr(grpcMode, "gun"),
+        security = safeObj(security, SecurityMode.NONE),
+        sni = safeStr(sni),
+        alpn = safeStr(alpn),
+        fingerprint = safeStr(fingerprint),
+        realityPublicKey = safeStr(realityPublicKey),
+        realityShortId = safeStr(realityShortId),
+        realitySpiderX = safeStr(realitySpiderX),
+        hy2ObfsType = safeStr(hy2ObfsType),
+        hy2ObfsPassword = safeStr(hy2ObfsPassword),
+        hy2PortHopping = safeStr(hy2PortHopping),
+        pinSha256 = safeStr(pinSha256),
+        wgPrivateKey = safeStr(wgPrivateKey),
+        wgPublicKey = safeStr(wgPublicKey),
+        wgPresharedKey = safeStr(wgPresharedKey),
+        wgLocalAddress = safeStr(wgLocalAddress, "10.0.0.2/32"),
+        wgReserved = safeStr(wgReserved),
+        masquePath = safeStr(masquePath),
+        masqueHeaders = safeStr(masqueHeaders),
+        masqueRemoteDns = safeStr(masqueRemoteDns),
+        masqueWarpPrivateKey = safeStr(masqueWarpPrivateKey),
+        masqueWarpPublicKey = safeStr(masqueWarpPublicKey),
+        masqueWarpAddress = safeStr(masqueWarpAddress),
+        policyStrategy = safePolicyStrategy(),
+        childNodeIds = safeChildNodeIds(),
+        policySubscriptionId = safeStr(policySubscriptionId),
+        policyFilter = safeStr(policyFilter),
+        customRawJson = safeStr(customRawJson)
+    )
+
+    @Suppress("USELESS_ELVIS")
+    private fun safePolicyStrategy(): PolicyStrategy = (policyStrategy as PolicyStrategy?) ?: PolicyStrategy.LEAST_PING
+
+    @Suppress("USELESS_ELVIS")
+    private fun safeChildNodeIds(): List<String> = (childNodeIds as List<String>?) ?: emptyList()
+
+    companion object {
+        @Suppress("USELESS_ELVIS")
+        private fun safeStr(value: String?, default: String = ""): String = value ?: default
+
+        @Suppress("USELESS_ELVIS")
+        private fun <T> safeObj(value: T?, default: T): T = value ?: default
     }
 }

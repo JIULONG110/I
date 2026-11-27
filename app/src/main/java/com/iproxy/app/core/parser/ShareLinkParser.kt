@@ -12,7 +12,7 @@ import java.net.URI
 /**
  * 主流代理协议分享链接解析与生成引擎
  *
- * 支持协议：VLESS / VMess / Trojan / Shadowsocks / Hysteria2 / WireGuard / SOCKS5 / HTTP / 自定义 Xray JSON
+ * 支持协议：VLESS / VMess / Trojan / Shadowsocks / Hysteria2 / WireGuard / MASQUE / SOCKS5 / HTTP / 自定义 JSON
  */
 object ShareLinkParser {
 
@@ -23,8 +23,8 @@ object ShareLinkParser {
         val trimmed = rawInput.trim()
         if (trimmed.isEmpty()) return null
 
-        // 若是 JSON 文本，直接作为自定义 Xray JSON 节点解析
-        if (trimmed.startsWith("{")) {
+        // 若是 JSON 对象或数组，作为自定义 Xray JSON 节点解析
+        if (trimmed.startsWith("{") || trimmed.startsWith("[")) {
             return parseCustomJson(trimmed, subscriptionId)
         }
 
@@ -38,6 +38,8 @@ object ShareLinkParser {
                 parseHysteria2(trimmed, subscriptionId)
             lower.startsWith("wireguard://") || lower.startsWith("wg://") ->
                 parseWireGuard(trimmed, subscriptionId)
+            lower.startsWith("masque://") ->
+                parseMasque(trimmed, subscriptionId)
             lower.startsWith("socks://") || lower.startsWith("socks5://") ->
                 parseSocks(trimmed, subscriptionId)
             lower.startsWith("http://") || lower.startsWith("https://") ->
@@ -57,9 +59,11 @@ object ShareLinkParser {
             ProtocolType.SHADOWSOCKS -> buildShadowsocksLink(node)
             ProtocolType.HYSTERIA2 -> buildHysteria2Link(node)
             ProtocolType.WIREGUARD -> buildWireGuardLink(node)
+            ProtocolType.MASQUE -> buildMasqueLink(node)
             ProtocolType.SOCKS -> buildSocksLink(node)
             ProtocolType.HTTP -> buildHttpLink(node)
-            ProtocolType.CUSTOM_JSON -> node.customRawJson
+            ProtocolType.CUSTOM_JSON, ProtocolType.CUSTOM_OUTBOUND -> node.customRawJson
+            ProtocolType.POLICY_GROUP, ProtocolType.PROXY_CHAIN -> buildGroupSummaryJson(node)
         }
     }
 
@@ -324,6 +328,37 @@ object ShareLinkParser {
         )
     }
 
+    private fun parseMasque(link: String, subscriptionId: String?): ServerNode? {
+        val uri = safeParseUri(link) ?: return null
+        val serverHost = uri.host?.takeIf { it.isNotBlank() } ?: return null
+        val port = uri.port.takeIf { it in 1..65535 } ?: 443
+        val remark = extractRemark(uri, "$serverHost:$port")
+        val params = parseQueryParams(uri.rawQuery)
+        val (user, pass) = parseUserPass(uri.userInfo)
+
+        return ServerNode(
+            name = remark,
+            protocol = ProtocolType.MASQUE,
+            server = serverHost,
+            port = port,
+            subscriptionId = subscriptionId,
+            username = user,
+            passwordOrUuid = pass,
+            network = TransportNetwork.MASQUE,
+            security = SecurityMode.TLS,
+            sni = params["sni"].orEmpty(),
+            host = params["host"].orEmpty(),
+            fingerprint = params["fp"].orEmpty(),
+            allowInsecure = params["allowInsecure"] == "1" || params["insecure"] == "1",
+            pinSha256 = params["pinSHA256"].orEmpty(),
+            masquePath = params["path"].orEmpty(),
+            masqueRemoteDns = params["dns"].orEmpty().ifBlank { params["remoteDNS"].orEmpty() },
+            masqueWarpPrivateKey = params["warpPk"].orEmpty(),
+            masqueWarpPublicKey = params["warpPub"].orEmpty(),
+            masqueWarpAddress = params["warpAddr"].orEmpty()
+        )
+    }
+
     private fun parseSocks(link: String, subscriptionId: String?): ServerNode? {
         val uri = safeParseUri(link) ?: return null
         val host = uri.host?.takeIf { it.isNotBlank() } ?: return null
@@ -360,14 +395,7 @@ object ShareLinkParser {
         val isHttps = link.lowercase().startsWith("https://")
         val port = uri.port.takeIf { it in 1..65535 } ?: if (isHttps) 443 else 8080
         val remark = extractRemark(uri, "$host:$port")
-        var user = ""
-        var pass = ""
-        val rawUserInfo = uri.userInfo.orEmpty()
-        if (rawUserInfo.contains(":")) {
-            val idx = rawUserInfo.indexOf(':')
-            user = FormatUtils.urlDecode(rawUserInfo.substring(0, idx))
-            pass = FormatUtils.urlDecode(rawUserInfo.substring(idx + 1))
-        }
+        val (user, pass) = parseUserPass(uri.userInfo)
         return ServerNode(
             name = remark,
             protocol = ProtocolType.HTTP,
@@ -381,14 +409,44 @@ object ShareLinkParser {
     }
 
     private fun parseCustomJson(jsonText: String, subscriptionId: String?): ServerNode? {
-        val obj = runCatching { JsonParser.parseString(jsonText).asJsonObject }.getOrNull() ?: return null
-        // 校验至少包含 outbounds 字段或 protocol 字段
+        val elem = runCatching { JsonParser.parseString(jsonText) }.getOrNull() ?: return null
+        if (elem.isJsonArray) {
+            val arr = elem.asJsonArray
+            val hasValidOutbound = arr.size() > 0 && arr.all { it.isJsonObject && it.asJsonObject.has("protocol") }
+            if (!hasValidOutbound) return null
+            return ServerNode(
+                name = "自定义出站链",
+                protocol = ProtocolType.CUSTOM_OUTBOUND,
+                server = "outbound",
+                port = 443,
+                subscriptionId = subscriptionId,
+                customRawJson = jsonText
+            )
+        }
+        if (!elem.isJsonObject) return null
+        val obj = elem.asJsonObject
         val hasOutbounds = obj.has("outbounds") && obj.get("outbounds").isJsonArray
         val hasProtocol = obj.has("protocol")
         if (!hasOutbounds && !hasProtocol) return null
 
+        // 若是单个 outbound JSON 且不包含完整 config 的 inbounds/routing/outbounds，直接作为自定义出站节点
+        if (hasProtocol && !hasOutbounds) {
+            val protoName = obj.getStringOrEmpty("protocol").uppercase()
+            val remarks = obj.getStringOrEmpty("remarks").ifBlank {
+                obj.getStringOrEmpty("tag").ifBlank { "自定义出站 ($protoName)" }
+            }
+            return ServerNode(
+                name = remarks,
+                protocol = ProtocolType.CUSTOM_OUTBOUND,
+                server = "outbound",
+                port = 443,
+                subscriptionId = subscriptionId,
+                customRawJson = jsonText
+            )
+        }
+
         val remarks = obj.getStringOrEmpty("remarks").ifBlank {
-            obj.getStringOrEmpty("ps").ifBlank { "自定义 Xray 节点" }
+            obj.getStringOrEmpty("ps").ifBlank { "自定义 Xray 配置" }
         }
         return ServerNode(
             name = remarks,
@@ -495,6 +553,26 @@ object ShareLinkParser {
         return "wireguard://${FormatUtils.urlEncode(node.wgPrivateKey)}@$hostPort?${encodeQuery(query)}#${FormatUtils.urlEncode(node.name)}"
     }
 
+    private fun buildMasqueLink(node: ServerNode): String {
+        val query = linkedMapOf<String, String>()
+        if (node.sni.isNotBlank()) query["sni"] = node.sni
+        if (node.host.isNotBlank()) query["host"] = node.host
+        if (node.fingerprint.isNotBlank()) query["fp"] = node.fingerprint
+        if (node.allowInsecure) query["allowInsecure"] = "1"
+        if (node.pinSha256.isNotBlank()) query["pinSHA256"] = node.pinSha256
+        if (node.masquePath.isNotBlank()) query["path"] = node.masquePath
+        if (node.masqueRemoteDns.isNotBlank()) query["dns"] = node.masqueRemoteDns
+        if (node.masqueWarpPrivateKey.isNotBlank()) query["warpPk"] = node.masqueWarpPrivateKey
+        if (node.masqueWarpPublicKey.isNotBlank()) query["warpPub"] = node.masqueWarpPublicKey
+        if (node.masqueWarpAddress.isNotBlank()) query["warpAddr"] = node.masqueWarpAddress
+        val auth = if (node.username.isNotBlank() || node.passwordOrUuid.isNotBlank()) {
+            "${FormatUtils.urlEncode(node.username)}:${FormatUtils.urlEncode(node.passwordOrUuid)}@"
+        } else ""
+        val queryPart = if (query.isNotEmpty()) "?${encodeQuery(query)}" else ""
+        val hostPort = FormatUtils.formatHostPort(node.server, node.port)
+        return "masque://$auth$hostPort$queryPart#${FormatUtils.urlEncode(node.name)}"
+    }
+
     private fun buildSocksLink(node: ServerNode): String {
         val auth = if (node.username.isNotBlank() || node.passwordOrUuid.isNotBlank()) {
             "${FormatUtils.urlEncode(node.username)}:${FormatUtils.urlEncode(node.passwordOrUuid)}@"
@@ -511,9 +589,32 @@ object ShareLinkParser {
         val hostPort = FormatUtils.formatHostPort(node.server, node.port)
         return "$scheme://$auth$hostPort#${FormatUtils.urlEncode(node.name)}"
     }
+
+    private fun buildGroupSummaryJson(node: ServerNode): String {
+        return JsonObject().apply {
+            addProperty("name", node.name)
+            addProperty("type", node.protocol.scheme)
+            if (node.protocol == ProtocolType.POLICY_GROUP) {
+                addProperty("strategy", node.policyStrategy.value)
+                if (node.policyFilter.isNotBlank()) addProperty("filter", node.policyFilter)
+            }
+            addProperty("childCount", node.childNodeIds.size)
+        }.toString()
+    }
     // endregion
 
     // region 辅助工具函数
+    private fun parseUserPass(rawUserInfo: String?): Pair<String, String> {
+        val info = rawUserInfo.orEmpty()
+        if (info.isEmpty()) return "" to ""
+        return if (info.contains(':')) {
+            val idx = info.indexOf(':')
+            FormatUtils.urlDecode(info.substring(0, idx)) to FormatUtils.urlDecode(info.substring(idx + 1))
+        } else {
+            FormatUtils.urlDecode(info) to ""
+        }
+    }
+
     private fun safeParseUri(raw: String): URI? {
         return runCatching {
             URI(raw.replace(" ", "%20"))

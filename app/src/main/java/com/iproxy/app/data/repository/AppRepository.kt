@@ -251,7 +251,7 @@ class AppRepository(
                 async {
                     semaphore.withPermit {
                         val delayMs = runCatching {
-                            val cfg = XrayConfigGenerator.generateSpeedTestConfig(node, settings)
+                            val cfg = XrayConfigGenerator.generateSpeedTestConfig(node, settings, allNodes)
                             Libv2ray.measureOutboundDelay(cfg, settings.speedTestUrl)
                         }.getOrElse { -1L }
                         node.id to delayMs

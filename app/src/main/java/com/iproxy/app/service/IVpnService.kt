@@ -145,8 +145,9 @@ class IVpnService : VpnService(), CoreCallbackHandler {
             val controller = Libv2ray.newCoreController(this)
             coreController = controller
 
-            val resolvedHosts = resolveProxyServerHosts(node, settings)
-            val xrayConfig = XrayConfigGenerator.generateConfig(node, settings, resolvedHosts)
+            val allNodes = storage.readNodesSync()
+            val resolvedHosts = resolveProxyServerHosts(node, settings, allNodes)
+            val xrayConfig = XrayConfigGenerator.generateConfig(node, settings, resolvedHosts, allNodes)
             CoreLogBuffer.i(TAG, "启动节点 [${node.name}] (${node.badgeText()})，模式: ${settings.routingMode.title}")
 
             // 建立 Android VPN TUN（纯本地代理模式则跳过）
@@ -369,25 +370,27 @@ class IVpnService : VpnService(), CoreCallbackHandler {
      */
     private fun resolveProxyServerHosts(
         node: ServerNode,
-        settings: AppSettings
+        settings: AppSettings,
+        allNodes: List<ServerNode>
     ): Map<String, List<String>> {
-        val host = node.server.trim()
-        if (host.isEmpty() ||
-            node.protocol == ProtocolType.CUSTOM_JSON ||
-            FormatUtils.isIpLiteral(host)
-        ) {
-            return emptyMap()
+        val candidateHosts = XrayConfigGenerator.collectTargetHosts(node, allNodes)
+            .filter { !FormatUtils.isIpLiteral(it) }
+        if (candidateHosts.isEmpty()) return emptyMap()
+
+        val result = linkedMapOf<String, List<String>>()
+        candidateHosts.forEach { host ->
+            val resolved = runCatching {
+                InetAddress.getAllByName(host)
+                    .mapNotNull { it.hostAddress }
+                    .filter { settings.enableIpv6 || !it.contains(':') }
+                    .distinct()
+            }.getOrDefault(emptyList())
+            if (resolved.isNotEmpty()) {
+                result[host] = resolved
+                CoreLogBuffer.i(TAG, "已预解析节点域名 $host -> ${resolved.joinToString(", ")}")
+            }
         }
-        val resolved = runCatching {
-            InetAddress.getAllByName(host)
-                .mapNotNull { it.hostAddress }
-                .filter { settings.enableIpv6 || !it.contains(':') }
-                .distinct()
-        }.getOrDefault(emptyList())
-        if (resolved.isNotEmpty()) {
-            CoreLogBuffer.i(TAG, "已预解析节点域名 $host -> ${resolved.joinToString(", ")}")
-        }
-        return if (resolved.isNotEmpty()) mapOf(host to resolved) else emptyMap()
+        return result
     }
 
     private fun startTrafficStatsPolling(node: ServerNode, settings: AppSettings) {
@@ -408,7 +411,7 @@ class IVpnService : VpnService(), CoreCallbackHandler {
                             val tag = parts[0]
                             val dir = parts[1]
                             val value = parts[2].toLongOrNull() ?: 0L
-                            if (tag == "proxy" || tag == "direct") {
+                            if (tag == "proxy" || tag.startsWith("proxy-") || tag == "direct") {
                                 if (dir == "uplink") deltaUp += value
                                 if (dir == "downlink") deltaDown += value
                             }

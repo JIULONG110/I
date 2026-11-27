@@ -116,4 +116,38 @@ class ShareLinkParserTest {
         assertNull(ShareLinkParser.parse("invalid://not-supported"))
         assertNull(ShareLinkParser.parse("   "))
     }
+
+    @Test
+    fun `parses and serializes MASQUE links with WARP params and custom outbounds`() {
+        val masqueRaw = "masque://user1:pass1@consumer-masque.cloudflareclient.com:443" +
+            "?sni=consumer-masque.cloudflareclient.com&host=cloudflareaccess.com&path=%2F" +
+            "&dns=1.1.1.1,8.8.8.8&warpPk=privBase64&warpPub=pubBase64&warpAddr=172.16.0.2%2F32#WARP-MASQUE"
+
+        val masqueNode = ShareLinkParser.parse(masqueRaw)
+        assertNotNull(masqueNode)
+        assertEquals(ProtocolType.MASQUE, masqueNode!!.protocol)
+        assertEquals("WARP-MASQUE", masqueNode.name)
+        assertEquals("user1", masqueNode.username)
+        assertEquals("pass1", masqueNode.passwordOrUuid)
+        assertEquals("cloudflareaccess.com", masqueNode.host)
+        assertEquals("/", masqueNode.masquePath)
+        assertEquals("privBase64", masqueNode.masqueWarpPrivateKey)
+        assertEquals("pubBase64", masqueNode.masqueWarpPublicKey)
+        assertEquals("172.16.0.2/32", masqueNode.masqueWarpAddress)
+
+        val roundTrip = ShareLinkParser.parse(ShareLinkParser.toShareLink(masqueNode))
+        assertNotNull(roundTrip)
+        assertEquals(ProtocolType.MASQUE, roundTrip!!.protocol)
+        assertEquals(masqueNode.masqueWarpPrivateKey, roundTrip.masqueWarpPrivateKey)
+
+        val outboundJson = """{"tag":"out1","protocol":"vless","settings":{"address":"1.2.3.4","port":443}}"""
+        val outboundNode = ShareLinkParser.parse(outboundJson)
+        assertNotNull(outboundNode)
+        assertEquals(ProtocolType.CUSTOM_OUTBOUND, outboundNode!!.protocol)
+
+        val fullJson = """{"outbounds":[{"tag":"proxy","protocol":"freedom"}]}"""
+        val fullNode = ShareLinkParser.parse(fullJson)
+        assertNotNull(fullNode)
+        assertEquals(ProtocolType.CUSTOM_JSON, fullNode!!.protocol)
+    }
 }

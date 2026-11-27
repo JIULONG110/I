@@ -2,9 +2,6 @@ package com.iproxy.app.ui.screens
 
 import android.Manifest
 import android.content.pm.PackageManager
-import android.graphics.ImageDecoder
-import android.os.Build
-import android.provider.MediaStore
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
@@ -82,25 +79,9 @@ fun QrScanScreen(
         ActivityResultContracts.PickVisualMedia()
     ) { uri ->
         if (uri == null) return@rememberLauncherForActivityResult
-        runCatching {
-            val bitmap = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
-                val source = ImageDecoder.createSource(context.contentResolver, uri)
-                ImageDecoder.decodeBitmap(source) { decoder, _, _ ->
-                    decoder.allocator = ImageDecoder.ALLOCATOR_SOFTWARE
-                }
-            } else {
-                @Suppress("DEPRECATION")
-                MediaStore.Images.Media.getBitmap(context.contentResolver, uri)
-            }
-            val decoded = QrCodeHelper.decodeFromBitmap(bitmap)
-            if (!decoded.isNullOrBlank()) {
-                onScanned(decoded)
-            } else {
-                onScanError("未能从所选图片中识别出二维码")
-            }
-        }.onFailure {
-            onScanError("读取图片失败: ${it.message}")
-        }
+        QrCodeHelper.decodeFromUri(context, uri)
+            .onSuccess { onScanned(it) }
+            .onFailure { onScanError(it.message ?: "读取图片失败") }
     }
 
     LaunchedEffect(Unit) {

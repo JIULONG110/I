@@ -272,6 +272,10 @@ fun IProxyAppRoot(viewModel: MainViewModel = viewModel()) {
                                         onSortByLatency = { viewModel.sortByLatency() },
                                         onClearUnreachable = { viewModel.clearUnreachableNodes() },
                                         onImportClipboard = { importFromClipboard() },
+                                        onImportRawText = { viewModel.importFromText(it) },
+                                        onShowMessage = { msg ->
+                                            scope.launch { snackbarHostState.showSnackbar(msg) }
+                                        },
                                         onOpenQrScan = { showQrScanner = true },
                                         onAddSubscription = { n, u, a -> viewModel.addSubscription(n, u, a) },
                                         onRefreshSubscription = { viewModel.refreshSubscription(it) },
