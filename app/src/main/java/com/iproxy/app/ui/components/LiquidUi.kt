@@ -9,6 +9,7 @@ import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -44,19 +45,17 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.Path
-import androidx.compose.ui.graphics.StrokeCap
-import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.iproxy.app.R
 import com.iproxy.app.data.model.ThemeMode
 import com.iproxy.app.data.model.VpnStatus
 import com.iproxy.app.ui.theme.BrandBlue
@@ -390,7 +389,7 @@ fun LiquidThemeToggleButton(
 }
 
 /**
- * 全新黑色系黑曜石几何「I」品牌 Logo（用于启动页、首页抬头与更新弹窗）
+ * 黑曜石流纹光球「I」品牌 Logo（用于启动页、首页抬头、设置与更新弹窗）
  */
 @Composable
 fun BlackBrandLogo(
@@ -398,90 +397,26 @@ fun BlackBrandLogo(
     size: Dp = 42.dp,
     accentGlow: Color? = null
 ) {
-    Canvas(modifier = modifier.size(size)) {
-        val w = this.size.width
-        val h = this.size.height
-        val corner = w * 0.28f
-
-        // 黑曜石立体底座
-        drawRoundRect(
-            brush = Brush.linearGradient(
-                colors = listOf(Color(0xFF1F2530), Color(0xFF06080C)),
-                start = Offset.Zero,
-                end = Offset(w, h)
-            ),
-            cornerRadius = CornerRadius(corner, corner)
-        )
-
-        // 顶部液态微反光
-        drawRoundRect(
-            brush = Brush.radialGradient(
-                colors = listOf(Color(0x2EFFFFFF), Color.Transparent),
-                center = Offset(w * 0.28f, h * 0.22f),
-                radius = w * 0.72f
-            ),
-            cornerRadius = CornerRadius(corner, corner)
-        )
-
-        // 外沿铂银 / 状态描边
-        drawRoundRect(
-            brush = Brush.linearGradient(
-                colors = if (accentGlow != null) {
-                    listOf(accentGlow.copy(alpha = 0.85f), Color(0x40FFFFFF))
-                } else {
-                    listOf(Color(0x55FFFFFF), Color(0x1894A3B8))
-                }
-            ),
-            cornerRadius = CornerRadius(corner, corner),
-            style = Stroke(width = w * 0.032f)
-        )
-
-        // 轨道双断弧
-        val arcInset = w * 0.19f
-        val arcSize = Size(w - arcInset * 2, h - arcInset * 2)
-        val arcOffset = Offset(arcInset, arcInset)
-        drawArc(
-            brush = Brush.linearGradient(listOf(Color.White, Color(0x99CBD5E1))),
-            startAngle = -90f,
-            sweepAngle = 92f,
-            useCenter = false,
-            topLeft = arcOffset,
-            size = arcSize,
-            style = Stroke(width = w * 0.048f, cap = StrokeCap.Round)
-        )
-        drawArc(
-            color = Color(0x7094A3B8),
-            startAngle = 90f,
-            sweepAngle = 92f,
-            useCenter = false,
-            topLeft = arcOffset,
-            size = arcSize,
-            style = Stroke(width = w * 0.042f, cap = StrokeCap.Round)
-        )
-
-        // 中心建筑感铂银字母 I
-        val path = Path().apply {
-            moveTo(w * 0.365f, h * 0.28f)
-            lineTo(w * 0.635f, h * 0.28f)
-            lineTo(w * 0.635f, h * 0.365f)
-            lineTo(w * 0.545f, h * 0.365f)
-            lineTo(w * 0.545f, h * 0.635f)
-            lineTo(w * 0.635f, h * 0.635f)
-            lineTo(w * 0.635f, h * 0.72f)
-            lineTo(w * 0.365f, h * 0.72f)
-            lineTo(w * 0.365f, h * 0.635f)
-            lineTo(w * 0.455f, h * 0.635f)
-            lineTo(w * 0.455f, h * 0.365f)
-            lineTo(w * 0.365f, h * 0.365f)
-            close()
+    val shape = RoundedCornerShape(size * 0.26f)
+    val borderBrush = Brush.linearGradient(
+        colors = if (accentGlow != null) {
+            listOf(accentGlow.copy(alpha = 0.88f), Color(0x55FFFFFF))
+        } else {
+            listOf(Color(0x55E2E8F0), Color(0x2064748B))
         }
-        drawPath(
-            path = path,
-            brush = Brush.linearGradient(
-                colors = listOf(Color.White, Color(0xFFD8E1EC), Color(0xFF94A3B8)),
-                start = Offset(w * 0.38f, h * 0.28f),
-                end = Offset(w * 0.62f, h * 0.72f)
-            )
+    )
+
+    Box(
+        modifier = modifier
+            .size(size)
+            .clip(shape)
+            .border(width = (size * 0.028f).coerceAtLeast(1.dp), brush = borderBrush, shape = shape)
+    ) {
+        Image(
+            painter = painterResource(id = R.drawable.brand_logo),
+            contentDescription = "I 品牌 Logo",
+            contentScale = ContentScale.Crop,
+            modifier = Modifier.fillMaxSize()
         )
     }
 }
