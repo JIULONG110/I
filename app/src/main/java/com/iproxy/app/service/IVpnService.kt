@@ -42,6 +42,8 @@ import libv2ray.CoreCallbackHandler
 import libv2ray.CoreController
 import libv2ray.Libv2ray
 import java.io.File
+import java.net.InetSocketAddress
+import java.net.Socket
 import java.util.concurrent.atomic.AtomicBoolean
 
 /**
@@ -157,10 +159,14 @@ class IVpnService : VpnService(), CoreCallbackHandler {
 
             // 先启动 Xray 本地入站监听（tunFd = 0 表示使用 hev-socks5-tunnel 转发 TUN 流量）
             controller.startLoop(xrayConfig, 0)
+            verifySocksInboundReady(settings.socksPort)
 
             // 再启动 hev-socks5-tunnel 将 TUN 数据包喂给本地 SOCKS5
             if (!settings.proxyOnlyMode && tunFd > 0) {
-                startHevTunnel(settings, tunFd)
+                val hevOk = startHevTunnel(settings, tunFd)
+                if (!hevOk) {
+                    error("hev-socks5-tunnel 启动失败：TUN 流量未能桥接到本地代理，常见原因是安装包架构与设备不匹配，或本地端口被占用")
+                }
             }
 
             val connectedAt = System.currentTimeMillis()
@@ -174,20 +180,28 @@ class IVpnService : VpnService(), CoreCallbackHandler {
             updateNotification(node.name, "已连接 · ${node.badgeText()}")
             startTrafficStatsPolling(node, settings)
             IQuickTileService.requestTileSync(applicationContext)
-        } catch (t: Throwable) {
-            CoreLogBuffer.e(TAG, "启动代理连接失败", t)
-            stopVpnTunnelSync(resetState = false)
-            updateState(
-                VpnRuntimeState(
-                    status = VpnStatus.ERROR,
-                    activeNodeId = node.id,
-                    activeNodeName = node.name,
-                    activeNodeProtocol = node.badgeText(),
-                    lastError = t.message ?: "启动失败"
-                )
+        } catch (e: UnsatisfiedLinkError) {
+            handleStartFailure(
+                node = node,
+                userMessage = ABI_MISMATCH_ERROR,
+                logMessage = "启动代理连接失败（原生库架构不匹配）",
+                throwable = e
             )
-            IQuickTileService.requestTileSync(applicationContext)
-            stopSelf()
+        } catch (e: LinkageError) {
+            handleStartFailure(
+                node = node,
+                userMessage = ABI_MISMATCH_ERROR,
+                logMessage = "启动代理连接失败（原生库链接异常）",
+                throwable = e
+            )
+        } catch (t: Throwable) {
+            val isLinkageCause = generateSequence(t.cause) { it.cause }.any { it is LinkageError }
+            handleStartFailure(
+                node = node,
+                userMessage = if (isLinkageCause) ABI_MISMATCH_ERROR else (t.message ?: "启动失败"),
+                logMessage = "启动代理连接失败",
+                throwable = t
+            )
         }
     }
 
@@ -251,7 +265,54 @@ class IVpnService : VpnService(), CoreCallbackHandler {
         }
     }
 
-    private fun startHevTunnel(settings: AppSettings, tunFd: Int) {
+    /**
+     * 探测 Xray 本地 SOCKS5 入站端口是否已实际监听，区分内核未监听与 TUN 桥接失败
+     */
+    private fun verifySocksInboundReady(port: Int, timeoutMs: Int = SOCKS_PROBE_TIMEOUT_MS) {
+        val deadlineMs = System.currentTimeMillis() + timeoutMs
+        var lastException: Exception? = null
+        while (true) {
+            val remainingMs = (deadlineMs - System.currentTimeMillis()).toInt()
+            val connectTimeout = remainingMs.coerceIn(50, timeoutMs)
+            try {
+                Socket().use { socket ->
+                    socket.connect(InetSocketAddress("127.0.0.1", port), connectTimeout)
+                }
+                CoreLogBuffer.i(TAG, "Xray 本地 SOCKS5 入站已就绪 (127.0.0.1:$port)")
+                return
+            } catch (e: Exception) {
+                lastException = e
+                if (System.currentTimeMillis() >= deadlineMs) {
+                    break
+                }
+                Thread.sleep(50L)
+            }
+        }
+        error("Xray 本地入站未就绪 (127.0.0.1:$port): ${lastException?.message ?: "连接失败"}")
+    }
+
+    private fun handleStartFailure(
+        node: ServerNode,
+        userMessage: String,
+        logMessage: String,
+        throwable: Throwable
+    ) {
+        CoreLogBuffer.e(TAG, logMessage, throwable)
+        stopVpnTunnelSync(resetState = false)
+        updateState(
+            VpnRuntimeState(
+                status = VpnStatus.ERROR,
+                activeNodeId = node.id,
+                activeNodeName = node.name,
+                activeNodeProtocol = node.badgeText(),
+                lastError = userMessage
+            )
+        )
+        IQuickTileService.requestTileSync(applicationContext)
+        stopSelf()
+    }
+
+    private fun startHevTunnel(settings: AppSettings, tunFd: Int): Boolean {
         val conf = HevTunnelConfig(
             mtu = settings.vpnMtu,
             ipv4 = VPN_IPV4_CLIENT,
@@ -265,6 +326,7 @@ class IVpnService : VpnService(), CoreCallbackHandler {
         val started = TProxyService.TProxyStartService(confFile.absolutePath, tunFd)
         hevRunning = started
         CoreLogBuffer.i(TAG, "hev-socks5-tunnel 启动状态: $started (fd=$tunFd, socks=${settings.socksPort})")
+        return started
     }
 
     private fun startTrafficStatsPolling(node: ServerNode, settings: AppSettings) {
@@ -430,6 +492,8 @@ class IVpnService : VpnService(), CoreCallbackHandler {
         private const val NOTIFICATION_ID = 1001
         private const val VPN_IPV4_CLIENT = "10.0.0.2"
         private const val VPN_IPV6_CLIENT = "fd00::2"
+        private const val SOCKS_PROBE_TIMEOUT_MS = 300
+        private const val ABI_MISMATCH_ERROR = "当前安装包架构与设备不匹配，请改装 arm64-v8a 或 universal 版本"
 
         const val ACTION_START = "com.iproxy.app.action.START"
         const val ACTION_STOP = "com.iproxy.app.action.STOP"
