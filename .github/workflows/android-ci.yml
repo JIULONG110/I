@@ -48,11 +48,61 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-gradle-core-
 
+      - name: 校验 Release Tag 与版本号一致性
+        if: startsWith(github.ref, 'refs/tags/v')
+        run: |
+          TAG_VERSION="${GITHUB_REF_NAME#v}"
+          APP_VERSION=$(grep -E '^\s*versionName\s*=' app/build.gradle.kts | head -n1 | sed -E 's/.*"([^"]+)".*/\1/')
+          echo "Tag version: $TAG_VERSION, Gradle versionName: $APP_VERSION"
+          if [ "$TAG_VERSION" != "$APP_VERSION" ]; then
+            echo "::error::Tag version ($TAG_VERSION) does not match app/build.gradle.kts versionName ($APP_VERSION)"
+            exit 1
+          fi
+
+      - name: 配置持久化签名密钥
+        id: signing
+        env:
+          KEYSTORE_B64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          KEYSTORE_PASS: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          KEY_PASS: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: |
+          IS_TAG=false
+          if [[ "${{ github.ref }}" == refs/tags/v* ]]; then
+            IS_TAG=true
+          fi
+
+          if [ -z "$KEYSTORE_B64" ] || [ -z "$KEYSTORE_PASS" ] || [ -z "$KEY_ALIAS" ] || [ -z "$KEY_PASS" ]; then
+            if [ "$IS_TAG" = true ]; then
+              echo "::error::发布标签构建必须配置 GitHub Secrets (ANDROID_KEYSTORE_BASE64, ANDROID_KEYSTORE_PASSWORD, ANDROID_KEY_ALIAS, ANDROID_KEY_PASSWORD)，否则会导致包签名不一致并引发「未安装应用」错误！"
+              exit 1
+            else
+              echo "::warning::未检测到 ANDROID_KEYSTORE_* Secrets，本次分支构建将使用临时调试签名。"
+              exit 0
+            fi
+          fi
+
+          KEYSTORE_FILE="${{ runner.temp }}/iproxy-signing.p12"
+          printf '%s' "$KEYSTORE_B64" | tr -d '\r\n ' | base64 -d > "$KEYSTORE_FILE"
+          KEY_ALIAS_TRIMMED=$(printf '%s' "$KEY_ALIAS" | tr -d '\r\n')
+          KEYSTORE_PASS_TRIMMED=$(printf '%s' "$KEYSTORE_PASS" | tr -d '\r\n')
+          KEY_PASS_TRIMMED=$(printf '%s' "$KEY_PASS" | tr -d '\r\n')
+
+          keytool -list -keystore "$KEYSTORE_FILE" -storepass "$KEYSTORE_PASS_TRIMMED" -alias "$KEY_ALIAS_TRIMMED" >/dev/null
+          echo "Keystore verified for alias: $KEY_ALIAS_TRIMMED"
+
+          {
+            echo "ANDROID_KEYSTORE_PATH=$KEYSTORE_FILE"
+            echo "ANDROID_KEYSTORE_PASSWORD=$KEYSTORE_PASS_TRIMMED"
+            echo "ANDROID_KEY_ALIAS=$KEY_ALIAS_TRIMMED"
+            echo "ANDROID_KEY_PASSWORD=$KEY_PASS_TRIMMED"
+          } >> "$GITHUB_ENV"
+
       - name: 下载核心组件并运行单元测试
         run: ./gradlew downloadCoreAssets testDebugUnitTest --no-daemon
 
-      - name: 执行 Lint 与编译 Debug APK
-        run: ./gradlew lintDebug assembleDebug --no-daemon
+      - name: 执行 Lint 与编译 Debug 及 Release APK
+        run: ./gradlew lintDebug assembleDebug assembleRelease --no-daemon
 
       - name: 上传 Debug APK 构建产物
         uses: actions/upload-artifact@v4
@@ -60,15 +110,54 @@ jobs:
           name: I-Android-Debug-APK
           path: app/build/outputs/apk/debug/*.apk
 
-      - name: 标签触发时编译并发布 Release APK
+      - name: 标签触发时校验 Release 与 Debug 签名一致性
         if: startsWith(github.ref, 'refs/tags/v')
-        run: ./gradlew assembleRelease --no-daemon
+        run: |
+          APKSIGNER=$(find "$ANDROID_HOME/build-tools" -name apksigner -type f | sort -r | head -n 1)
+          if [ -z "$APKSIGNER" ]; then
+            echo "::error::apksigner not found"
+            exit 1
+          fi
+          if ls app/build/outputs/apk/release/*unsigned*.apk 1>/dev/null 2>&1; then
+            echo "::error::检测到未签名 Release APK，终止发布！"
+            exit 1
+          fi
+
+          REL_SHA=""
+          for apk in app/build/outputs/apk/release/*.apk; do
+            echo "Verifying $apk ..."
+            SHA=$("$APKSIGNER" verify --print-certs "$apk" | grep "SHA-256 digest" | head -n1)
+            echo "  $SHA"
+            if [ -z "$SHA" ]; then
+              echo "::error::$apk 签名验证失败"
+              exit 1
+            fi
+            if [ -z "$REL_SHA" ]; then
+              REL_SHA="$SHA"
+            elif [ "$REL_SHA" != "$SHA" ]; then
+              echo "::error::Release APK 之间签名指纹不一致！"
+              exit 1
+            fi
+          done
+
+          for apk in app/build/outputs/apk/debug/*.apk; do
+            DBG_SHA=$("$APKSIGNER" verify --print-certs "$apk" | grep "SHA-256 digest" | head -n1)
+            if [ "$REL_SHA" != "$DBG_SHA" ]; then
+              echo "::error::Debug APK 与 Release APK 签名不一致，可能导致日后无法直接覆盖更新！"
+              exit 1
+            fi
+          done
+          echo "All Release and Debug APKs verified with unified certificate: $REL_SHA"
+
+      - name: 清理临时签名文件
+        if: always()
+        run: rm -f "${{ runner.temp }}/iproxy-signing.p12"
 
       - name: 发布到 GitHub Releases
         if: startsWith(github.ref, 'refs/tags/v')
         uses: softprops/action-gh-release@v2
         with:
           files: |
-            app/build/outputs/apk/debug/*.apk
             app/build/outputs/apk/release/*.apk
+            app/build/outputs/apk/debug/*.apk
           generate_release_notes: true

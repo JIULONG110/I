@@ -15,6 +15,12 @@ captures/
 *.dex
 *.jks
 *.keystore
+*.p12
+*.pfx
+*.pem
+*.key
+/signing/
+keystore.properties
 !gradle/wrapper/gradle-wrapper.jar
 
 # 构建时自动下载的大体积内核与 Geo 规则库（见 gradle downloadCoreAssets 任务）

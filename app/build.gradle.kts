@@ -1,5 +1,6 @@
 import java.net.HttpURLConnection
 import java.net.URI
+import java.util.Properties
 
 plugins {
     alias(libs.plugins.android.application)
@@ -18,12 +19,49 @@ android {
         applicationId = "com.iproxy.app"
         minSdk = 26
         targetSdk = 35
-        versionCode = 102
-        versionName = "1.0.2"
+        versionCode = 103
+        versionName = "1.0.3"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables {
             useSupportLibrary = true
+        }
+    }
+
+    val keystorePropsFile = rootProject.file("keystore.properties")
+    val keystoreProps = Properties().apply {
+        if (keystorePropsFile.isFile) {
+            keystorePropsFile.inputStream().use { load(it) }
+        }
+    }
+    val signingStorePath = System.getenv("ANDROID_KEYSTORE_PATH")
+        ?: keystoreProps.getProperty("storeFile")
+    val signingStorePassword = System.getenv("ANDROID_KEYSTORE_PASSWORD")
+        ?: keystoreProps.getProperty("storePassword")
+    val signingKeyAlias = System.getenv("ANDROID_KEY_ALIAS")
+        ?: keystoreProps.getProperty("keyAlias")
+    val signingKeyPassword = System.getenv("ANDROID_KEY_PASSWORD")
+        ?: keystoreProps.getProperty("keyPassword")
+    val signingStoreFile = signingStorePath?.let { path ->
+        val f = file(path)
+        if (f.isFile) f else rootProject.file(path).takeIf { it.isFile }
+    }
+    val hasPersistentSigning = signingStoreFile != null &&
+        !signingStorePassword.isNullOrBlank() &&
+        !signingKeyAlias.isNullOrBlank() &&
+        !signingKeyPassword.isNullOrBlank()
+
+    signingConfigs {
+        if (hasPersistentSigning) {
+            create("appSigning") {
+                storeFile = signingStoreFile
+                storePassword = signingStorePassword
+                keyAlias = signingKeyAlias
+                keyPassword = signingKeyPassword
+                enableV1Signing = true
+                enableV2Signing = true
+                enableV3Signing = true
+            }
         }
     }
 
@@ -35,9 +73,15 @@ android {
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
             )
+            if (hasPersistentSigning) {
+                signingConfig = signingConfigs.getByName("appSigning")
+            }
         }
         debug {
             isMinifyEnabled = false
+            if (hasPersistentSigning) {
+                signingConfig = signingConfigs.getByName("appSigning")
+            }
         }
     }
 

@@ -8,6 +8,7 @@ import androidx.lifecycle.viewModelScope
 import com.iproxy.app.core.update.AppUpdateInfo
 import com.iproxy.app.core.update.AppUpdateManager
 import com.iproxy.app.core.update.InstallLaunchResult
+import com.iproxy.app.core.update.InstallLaunchResult
 import com.iproxy.app.core.util.CoreLogBuffer
 import com.iproxy.app.data.model.AppSettings
 import com.iproxy.app.data.model.LogEntry
@@ -90,6 +91,9 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     private val _pendingInstallApk = MutableStateFlow<File?>(null)
     val pendingInstallApk: StateFlow<File?> = _pendingInstallApk.asStateFlow()
 
+    private val _signatureMismatch = MutableStateFlow<InstallLaunchResult.SignatureMismatch?>(null)
+    val signatureMismatch: StateFlow<InstallLaunchResult.SignatureMismatch?> = _signatureMismatch.asStateFlow()
+
     private val _toastEvents = MutableSharedFlow<String>(extraBufferCapacity = 8)
     val toastEvents: SharedFlow<String> = _toastEvents.asSharedFlow()
 
@@ -125,6 +129,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                         _updateDownloadError.value = null
                         _updateDownloadProgress.value = null
                         _pendingInstallApk.value = null
+                        _signatureMismatch.value = null
                         _availableUpdate.value = info
                     } else if (!silentIfLatest) {
                         emitToast("当前已是最新版本")
@@ -146,6 +151,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         _updateDownloadProgress.value = null
         _updateDownloadError.value = null
         _pendingInstallApk.value = null
+        _signatureMismatch.value = null
     }
 
     fun downloadAndInstallUpdate() {
@@ -157,6 +163,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             _isDownloadingUpdate.value = true
             _updateDownloadError.value = null
             _updateDownloadProgress.value = null
+            _signatureMismatch.value = null
 
             updateManager.downloadApk(asset) { downloaded, total ->
                 _updateDownloadProgress.value = if (total > 0L) {
@@ -180,14 +187,36 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         handleInstallLaunchResult(updateManager.launchApkInstaller(apkFile))
     }
 
+    fun savePendingApkAndUninstall() {
+        val apkFile = _pendingInstallApk.value ?: return
+        viewModelScope.launch {
+            updateManager.saveApkToPublicDownloads(apkFile)
+                .onSuccess { savedRelPath ->
+                    emitToast("安装包已保存到 $savedRelPath，卸载后请在文件管理中打开安装")
+                    updateManager.launchUninstallCurrentApp()
+                        .onFailure { err ->
+                            _updateDownloadError.value = "无法拉起卸载界面: ${err.message}"
+                        }
+                }
+                .onFailure { err ->
+                    _updateDownloadError.value = err.message ?: "保存安装包失败，请点击「浏览器下载」"
+                }
+        }
+    }
+
     private fun handleInstallLaunchResult(result: InstallLaunchResult) {
         when (result) {
             InstallLaunchResult.Launched -> {
                 _updateDownloadError.value = null
+                _signatureMismatch.value = null
             }
             InstallLaunchResult.NeedsInstallPermission -> {
                 emitToast("请先开启「允许来自此来源的应用」安装权限")
                 _requestInstallPermissionEvent.tryEmit(Unit)
+            }
+            is InstallLaunchResult.SignatureMismatch -> {
+                _updateDownloadError.value = null
+                _signatureMismatch.value = result
             }
             is InstallLaunchResult.Failed -> {
                 _updateDownloadError.value = "启动安装失败: ${result.reason}"

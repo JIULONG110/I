@@ -89,6 +89,7 @@ fun IProxyAppRoot(viewModel: MainViewModel = viewModel()) {
     val updateDownloadProgress by viewModel.updateDownloadProgress.collectAsState()
     val updateDownloadError by viewModel.updateDownloadError.collectAsState()
     val pendingInstallApk by viewModel.pendingInstallApk.collectAsState()
+    val signatureMismatch by viewModel.signatureMismatch.collectAsState()
 
     var currentTab by remember { mutableIntStateOf(0) }
     var showQrScanner by remember { mutableStateOf(false) }
@@ -329,8 +330,16 @@ fun IProxyAppRoot(viewModel: MainViewModel = viewModel()) {
                         downloadProgress = updateDownloadProgress,
                         downloadError = updateDownloadError,
                         hasPendingInstallApk = pendingInstallApk != null,
+                        signatureMismatch = signatureMismatch,
                         onDownloadAndInstall = { viewModel.downloadAndInstallUpdate() },
                         onRetryInstall = { viewModel.retryInstallPendingApk() },
+                        onExportBackup = {
+                            scope.launch {
+                                val json = viewModel.exportBackupJson()
+                                copyToClipboard(json, "已复制全部节点与配置备份 JSON 到剪贴板")
+                            }
+                        },
+                        onSaveApkAndUninstall = { viewModel.savePendingApkAndUninstall() },
                         onOpenReleasePage = { openExternalUrl(update.releasePageUrl) },
                         onDismiss = { viewModel.dismissUpdateDialog() }
                     )

@@ -26,9 +26,12 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.ContentCopy
+import androidx.compose.material.icons.rounded.DeleteSweep
 import androidx.compose.material.icons.rounded.Download
 import androidx.compose.material.icons.rounded.OpenInBrowser
 import androidx.compose.material.icons.rounded.SystemUpdate
+import androidx.compose.material.icons.rounded.WarningAmber
 import androidx.compose.material3.Button
 import androidx.compose.material3.Icon
 import androidx.compose.material3.LinearProgressIndicator
@@ -56,6 +59,7 @@ import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import com.iproxy.app.BuildConfig
 import com.iproxy.app.core.update.AppUpdateInfo
+import com.iproxy.app.core.update.InstallLaunchResult
 import com.iproxy.app.core.util.FormatUtils
 import com.iproxy.app.ui.theme.CyanAccent
 import com.iproxy.app.ui.theme.ErrorRed
@@ -131,8 +135,11 @@ fun AppUpdateDialog(
     downloadProgress: Float?,
     downloadError: String?,
     hasPendingInstallApk: Boolean,
+    signatureMismatch: InstallLaunchResult.SignatureMismatch?,
     onDownloadAndInstall: () -> Unit,
     onRetryInstall: () -> Unit,
+    onExportBackup: () -> Unit,
+    onSaveApkAndUninstall: () -> Unit,
     onOpenReleasePage: () -> Unit,
     onDismiss: () -> Unit
 ) {
@@ -263,6 +270,40 @@ fun AppUpdateDialog(
                     }
                 }
 
+                if (signatureMismatch != null) {
+                    Spacer(modifier = Modifier.height(10.dp))
+                    Surface(
+                        shape = RoundedCornerShape(12.dp),
+                        color = ErrorRed.copy(alpha = 0.12f),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Column(modifier = Modifier.padding(12.dp)) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Icon(
+                                    imageVector = Icons.Rounded.WarningAmber,
+                                    contentDescription = null,
+                                    tint = ErrorRed,
+                                    modifier = Modifier.size(16.dp)
+                                )
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Text(
+                                    text = "签名不一致，无法直接覆盖安装",
+                                    style = MaterialTheme.typography.labelLarge,
+                                    fontWeight = FontWeight.Bold,
+                                    color = ErrorRed
+                                )
+                            }
+                            Spacer(modifier = Modifier.height(4.dp))
+                            Text(
+                                text = "当前签名 (${signatureMismatch.installedCertShort}...) 与新版 (${signatureMismatch.archiveCertShort}...) 不同。" +
+                                    "请先复制节点备份，再保存安装包到「下载/I」并卸载旧版重装；升级到统一签名版后，今后更新均可直接覆盖安装。",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    }
+                }
+
                 if (!downloadError.isNullOrBlank()) {
                     Spacer(modifier = Modifier.height(8.dp))
                     Text(
@@ -274,7 +315,25 @@ fun AppUpdateDialog(
 
                 Spacer(modifier = Modifier.height(16.dp))
 
-                if (hasPendingInstallApk) {
+                if (signatureMismatch != null && hasPendingInstallApk) {
+                    OutlinedButton(
+                        onClick = onExportBackup,
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Icon(Icons.Rounded.ContentCopy, contentDescription = null, modifier = Modifier.size(18.dp))
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text("1. 复制节点与配置备份到剪贴板")
+                    }
+                    Spacer(modifier = Modifier.height(6.dp))
+                    Button(
+                        onClick = onSaveApkAndUninstall,
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Icon(Icons.Rounded.DeleteSweep, contentDescription = null, modifier = Modifier.size(18.dp))
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text("2. 保存安装包到「下载」并卸载旧版")
+                    }
+                } else if (hasPendingInstallApk) {
                     Button(
                         onClick = onRetryInstall,
                         modifier = Modifier.fillMaxWidth()
