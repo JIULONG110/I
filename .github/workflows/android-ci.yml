@@ -99,10 +99,10 @@ jobs:
           } >> "$GITHUB_ENV"
 
       - name: 下载核心组件并运行单元测试
-        run: ./gradlew downloadCoreAssets testDebugUnitTest --no-daemon
+        run: ./gradlew downloadCoreAssets testDebugUnitTest --no-daemon --stacktrace
 
       - name: 执行 Lint 与编译 Debug 及 Release APK
-        run: ./gradlew lintDebug assembleDebug assembleRelease --no-daemon
+        run: ./gradlew lintDebug assembleDebug assembleRelease --no-daemon --stacktrace
 
       - name: 上传 Debug APK 构建产物
         uses: actions/upload-artifact@v4
