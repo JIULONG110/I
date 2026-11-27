@@ -235,7 +235,6 @@ fun NodesScreen(
                     DockActionIconButton(
                         icon = Icons.Rounded.Add,
                         contentDescription = "添加节点或订阅",
-                        highlighted = true,
                         onClick = { showAddMenu = true }
                     )
                     DropdownMenu(
@@ -568,15 +567,10 @@ private fun DockActionIconButton(
     icon: androidx.compose.ui.graphics.vector.ImageVector,
     contentDescription: String,
     enabled: Boolean = true,
-    highlighted: Boolean = false,
     onClick: () -> Unit
 ) {
     val shape = RoundedCornerShape(12.dp)
-    val bgBrush = if (highlighted) {
-        Brush.linearGradient(listOf(Color(0xCC1779E6), Color(0xE0074097)))
-    } else {
-        Brush.linearGradient(listOf(Color(0xE01A2C43), Color(0xEB0A1423)))
-    }
+    val bgBrush = Brush.linearGradient(listOf(Color(0xCC1779E6), Color(0xE0074097)))
     Box(
         modifier = Modifier
             .size(36.dp)
@@ -584,7 +578,7 @@ private fun DockActionIconButton(
             .background(bgBrush, shape)
             .border(
                 width = 1.dp,
-                color = if (highlighted) Color(0xD179D1FF) else Color(0x66709ACA),
+                color = Color(0xD179D1FF),
                 shape = shape
             )
             .clickable(enabled = enabled, onClick = onClick),
@@ -593,7 +587,7 @@ private fun DockActionIconButton(
         Icon(
             imageVector = icon,
             contentDescription = contentDescription,
-            tint = if (highlighted) Color.White else Color(0xFFC0D4EA),
+            tint = Color.White,
             modifier = Modifier.size(18.dp)
         )
     }
