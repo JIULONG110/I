@@ -187,6 +187,7 @@ fun HomeScreen(
                         val tip = when (runtimeState.status) {
                             VpnStatus.CONNECTED -> "安全通道运行中 · 已持续 ${FormatUtils.formatDuration(elapsedMs)}"
                             VpnStatus.CONNECTING -> "正在建立安全加密通道..."
+                            VpnStatus.DISCONNECTING -> "正在断开安全加密通道..."
                             VpnStatus.ERROR -> runtimeState.lastError ?: "连接出现异常，请检查节点设置"
                             VpnStatus.DISCONNECTED -> "当前未连接，上传与下载速率已归零"
                         }
@@ -293,6 +294,7 @@ private fun ReactorHeroCylinder(
     val stateLabel = when (status) {
         VpnStatus.CONNECTED -> "已连接"
         VpnStatus.CONNECTING -> "连接中"
+        VpnStatus.DISCONNECTING -> "正在断开"
         VpnStatus.ERROR -> "异常"
         VpnStatus.DISCONNECTED -> "未连接"
     }

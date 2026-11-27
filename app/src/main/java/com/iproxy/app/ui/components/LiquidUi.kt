@@ -37,10 +37,10 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.ButtonColors
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.LocalContentColor
-import androidx.compose.material3.OutlinedTextFieldColors
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextFieldColors
 import androidx.compose.material3.ripple
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
@@ -470,7 +470,7 @@ fun prototypePrimaryButtonColors(): ButtonColors = ButtonDefaults.buttonColors(
 )
 
 @Composable
-fun prototypeTextFieldColors(): OutlinedTextFieldColors = OutlinedTextFieldDefaults.colors(
+fun prototypeTextFieldColors(): TextFieldColors = OutlinedTextFieldDefaults.colors(
     focusedTextColor = ProtoTextPrimary,
     unfocusedTextColor = ProtoTextPrimary,
     cursorColor = Color(0xFF53CAFF),
