@@ -55,9 +55,14 @@ class XrayConfigGeneratorTest {
         assertEquals("sidValue", reality.get("shortId").asString)
 
         val rulesStr = root.getAsJsonObject("routing").getAsJsonArray("rules").toString()
+        assertTrue(rulesStr.contains("dns-out"))
+        assertTrue(rulesStr.contains("dns-module"))
         assertTrue(rulesStr.contains("geosite:category-ads-all"))
         assertTrue(rulesStr.contains("geoip:cn"))
         assertTrue(rulesStr.contains("geosite:cn"))
+
+        val outbounds = root.getAsJsonArray("outbounds")
+        assertTrue(outbounds.any { it.asJsonObject.get("tag").asString == "dns-out" })
     }
 
     @Test
@@ -110,5 +115,33 @@ class XrayConfigGeneratorTest {
         val root = JsonParser.parseString(cfg).asJsonObject
         assertFalse(root.has("inbounds"))
         assertEquals(2, root.getAsJsonArray("outbounds").size())
+    }
+
+    @Test
+    fun `pre-resolved proxy domain is written into dns hosts and sockopt`() {
+        val node = ServerNode(
+            name = "Domain Node",
+            protocol = ProtocolType.VLESS,
+            server = "proxy.example.com",
+            port = 443,
+            passwordOrUuid = "uuid-xyz",
+            network = TransportNetwork.TCP,
+            security = SecurityMode.REALITY,
+            realityPublicKey = "pbk123"
+        )
+        val cfg = XrayConfigGenerator.generateConfig(
+            node = node,
+            settings = AppSettings(),
+            resolvedHosts = mapOf("proxy.example.com" to listOf("203.0.113.10"))
+        )
+        val root = JsonParser.parseString(cfg).asJsonObject
+        val hosts = root.getAsJsonObject("dns").getAsJsonObject("hosts")
+        assertEquals("203.0.113.10", hosts.get("proxy.example.com").asString)
+
+        val proxySockopt = root.getAsJsonArray("outbounds")[0]
+            .asJsonObject
+            .getAsJsonObject("streamSettings")
+            .getAsJsonObject("sockopt")
+        assertEquals("UseIPv4", proxySockopt.get("domainStrategy").asString)
     }
 }

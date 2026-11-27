@@ -21,11 +21,12 @@ import com.iproxy.app.core.xray.XrayConfigGenerator
 import com.iproxy.app.data.local.AppStorage
 import com.iproxy.app.data.model.AppSettings
 import com.iproxy.app.data.model.PerAppMode
+import com.iproxy.app.data.model.ProtocolType
+import com.iproxy.app.data.model.RoutingMode
 import com.iproxy.app.data.model.ServerNode
 import com.iproxy.app.data.model.VpnRuntimeState
 import com.iproxy.app.data.model.VpnStatus
 import com.iproxy.app.ui.MainActivity
-import com.wgtunnel.hevtunnel.HevTunnelConfig
 import com.wgtunnel.hevtunnel.TProxyService
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -42,6 +43,7 @@ import libv2ray.CoreCallbackHandler
 import libv2ray.CoreController
 import libv2ray.Libv2ray
 import java.io.File
+import java.net.InetAddress
 import java.net.InetSocketAddress
 import java.net.Socket
 import java.util.concurrent.atomic.AtomicBoolean
@@ -143,7 +145,8 @@ class IVpnService : VpnService(), CoreCallbackHandler {
             val controller = Libv2ray.newCoreController(this)
             coreController = controller
 
-            val xrayConfig = XrayConfigGenerator.generateConfig(node, settings)
+            val resolvedHosts = resolveProxyServerHosts(node, settings)
+            val xrayConfig = XrayConfigGenerator.generateConfig(node, settings, resolvedHosts)
             CoreLogBuffer.i(TAG, "启动节点 [${node.name}] (${node.badgeText()})，模式: ${settings.routingMode.title}")
 
             // 建立 Android VPN TUN（纯本地代理模式则跳过）
@@ -217,11 +220,22 @@ class IVpnService : VpnService(), CoreCallbackHandler {
                 addRoute("::", 0)
             }
 
-            val dnsList = listOf(settings.remoteDns, settings.directDns)
+            val preferredDns = if (settings.routingMode == RoutingMode.DIRECT) {
+                listOf(settings.directDns)
+            } else {
+                listOf(settings.remoteDns)
+            }
+            val dnsList = preferredDns
                 .map { it.trim() }
                 .filter { FormatUtils.isIpLiteral(it) }
                 .distinct()
-                .ifEmpty { listOf("1.1.1.1", "8.8.8.8") }
+                .ifEmpty {
+                    if (settings.routingMode == RoutingMode.DIRECT) {
+                        listOf("223.5.5.5")
+                    } else {
+                        listOf("1.1.1.1")
+                    }
+                }
             dnsList.forEach { addDnsServer(it) }
 
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
@@ -266,7 +280,7 @@ class IVpnService : VpnService(), CoreCallbackHandler {
     }
 
     /**
-     * 探测 Xray 本地 SOCKS5 入站端口是否已实际监听，区分内核未监听与 TUN 桥接失败
+     * 探测 Xray 本地 SOCKS5 入站是否真正监听且接受 noauth 握手，区分内核未就绪与 TUN 桥接失败
      */
     private fun verifySocksInboundReady(port: Int, timeoutMs: Int = SOCKS_PROBE_TIMEOUT_MS) {
         val deadlineMs = System.currentTimeMillis() + timeoutMs
@@ -276,9 +290,26 @@ class IVpnService : VpnService(), CoreCallbackHandler {
             val connectTimeout = remainingMs.coerceIn(50, timeoutMs)
             try {
                 Socket().use { socket ->
+                    socket.soTimeout = connectTimeout.coerceAtLeast(150)
                     socket.connect(InetSocketAddress("127.0.0.1", port), connectTimeout)
+                    val out = socket.getOutputStream()
+                    out.write(byteArrayOf(0x05, 0x01, 0x00))
+                    out.flush()
+                    val inp = socket.getInputStream()
+                    val reply = ByteArray(2)
+                    var readTotal = 0
+                    while (readTotal < 2) {
+                        val n = inp.read(reply, readTotal, 2 - readTotal)
+                        if (n <= 0) break
+                        readTotal += n
+                    }
+                    if (readTotal < 2 || reply[0] != 0x05.toByte() || reply[1] != 0x00.toByte()) {
+                        error(
+                            "Xray 本地 SOCKS5 握手异常: read=$readTotal, ver=${reply[0].toInt() and 0xFF}, method=${reply[1].toInt() and 0xFF}"
+                        )
+                    }
                 }
-                CoreLogBuffer.i(TAG, "Xray 本地 SOCKS5 入站已就绪 (127.0.0.1:$port)")
+                CoreLogBuffer.i(TAG, "Xray 本地 SOCKS5 入站已就绪 (127.0.0.1:$port, noauth=OK)")
                 return
             } catch (e: Exception) {
                 lastException = e
@@ -313,20 +344,50 @@ class IVpnService : VpnService(), CoreCallbackHandler {
     }
 
     private fun startHevTunnel(settings: AppSettings, tunFd: Int): Boolean {
-        val conf = HevTunnelConfig(
-            mtu = settings.vpnMtu,
-            ipv4 = VPN_IPV4_CLIENT,
-            ipv6 = if (settings.enableIpv6) VPN_IPV6_CLIENT else "",
-            address = "127.0.0.1",
-            port = settings.socksPort,
-            username = "",
-            password = ""
-        )
-        val confFile = TProxyService.createHevTunnelConfig(conf, cacheDir)
+        // 不使用 HevTunnelConfig 默认模板，避免写入空 username: '' / password: ''
+        // 导致 hev-socks5-tunnel 错误启用 0x02 账密认证与 Xray noauth 冲突。
+        val confFile = File(cacheDir, "tproxy.conf")
+        confFile.writeText(buildHevTunnelConfigYaml(settings))
+
         val started = TProxyService.TProxyStartService(confFile.absolutePath, tunFd)
-        hevRunning = started
-        CoreLogBuffer.i(TAG, "hev-socks5-tunnel 启动状态: $started (fd=$tunFd, socks=${settings.socksPort})")
-        return started
+        val running = if (started) {
+            Thread.sleep(80L)
+            runCatching { TProxyService.TProxyIsRunning() }.getOrDefault(false)
+        } else {
+            false
+        }
+        hevRunning = started && running
+        CoreLogBuffer.i(
+            TAG,
+            "hev-socks5-tunnel 启动状态: $hevRunning (started=$started, running=$running, fd=$tunFd, socks=${settings.socksPort})"
+        )
+        return hevRunning
+    }
+
+    /**
+     * 在 VPN 接口启动前通过系统底层 DNS 预解析代理节点域名，避免 Android Go 运行时缺少 /etc/resolv.conf 引发解析失败或环路
+     */
+    private fun resolveProxyServerHosts(
+        node: ServerNode,
+        settings: AppSettings
+    ): Map<String, List<String>> {
+        val host = node.server.trim()
+        if (host.isEmpty() ||
+            node.protocol == ProtocolType.CUSTOM_JSON ||
+            FormatUtils.isIpLiteral(host)
+        ) {
+            return emptyMap()
+        }
+        val resolved = runCatching {
+            InetAddress.getAllByName(host)
+                .mapNotNull { it.hostAddress }
+                .filter { settings.enableIpv6 || !it.contains(':') }
+                .distinct()
+        }.getOrDefault(emptyList())
+        if (resolved.isNotEmpty()) {
+            CoreLogBuffer.i(TAG, "已预解析节点域名 $host -> ${resolved.joinToString(", ")}")
+        }
+        return if (resolved.isNotEmpty()) mapOf(host to resolved) else emptyMap()
     }
 
     private fun startTrafficStatsPolling(node: ServerNode, settings: AppSettings) {
@@ -492,8 +553,29 @@ class IVpnService : VpnService(), CoreCallbackHandler {
         private const val NOTIFICATION_ID = 1001
         private const val VPN_IPV4_CLIENT = "10.0.0.2"
         private const val VPN_IPV6_CLIENT = "fd00::2"
-        private const val SOCKS_PROBE_TIMEOUT_MS = 300
+        private const val SOCKS_PROBE_TIMEOUT_MS = 500
+        private const val HEV_TASK_STACK_SIZE = 86016
         private const val ABI_MISMATCH_ERROR = "当前安装包架构与设备不匹配，请改装 arm64-v8a 或 universal 版本"
+
+        internal fun buildHevTunnelConfigYaml(settings: AppSettings): String {
+            return buildString {
+                appendLine("tunnel:")
+                appendLine("  mtu: ${settings.vpnMtu}")
+                appendLine("  ipv4: $VPN_IPV4_CLIENT")
+                if (settings.enableIpv6) {
+                    appendLine("  ipv6: '$VPN_IPV6_CLIENT'")
+                }
+                appendLine("socks5:")
+                appendLine("  port: ${settings.socksPort}")
+                appendLine("  address: 127.0.0.1")
+                appendLine("  udp: 'udp'")
+                appendLine("misc:")
+                appendLine("  task-stack-size: $HEV_TASK_STACK_SIZE")
+                appendLine("  tcp-read-write-timeout: 300000")
+                appendLine("  udp-read-write-timeout: 60000")
+                appendLine("  log-level: warn")
+            }
+        }
 
         const val ACTION_START = "com.iproxy.app.action.START"
         const val ACTION_STOP = "com.iproxy.app.action.STOP"

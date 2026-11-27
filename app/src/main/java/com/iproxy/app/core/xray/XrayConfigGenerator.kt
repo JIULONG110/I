@@ -24,7 +24,11 @@ object XrayConfigGenerator {
     /**
      * 生成完整运行时 Xray JSON 配置字符串
      */
-    fun generateConfig(node: ServerNode, settings: AppSettings): String {
+    fun generateConfig(
+        node: ServerNode,
+        settings: AppSettings,
+        resolvedHosts: Map<String, List<String>> = emptyMap()
+    ): String {
         if (node.protocol == ProtocolType.CUSTOM_JSON && node.customRawJson.isNotBlank()) {
             val customRoot = runCatching {
                 JsonParser.parseString(node.customRawJson).asJsonObject
@@ -61,15 +65,16 @@ object XrayConfigGenerator {
         // 3. 入站监听（本地 SOCKS5 供 hev-socks5-tunnel 使用 + 本地 HTTP 代理）
         root.add("inbounds", buildInbounds(settings))
 
-        // 4. 出站节点（proxy + direct + block）
+        // 4. 出站节点（proxy + direct + block + dns-out）
         val outbounds = JsonArray()
-        outbounds.add(buildProxyOutbound(node, settings))
+        outbounds.add(buildProxyOutbound(node, settings, resolvedHosts))
         outbounds.add(buildDirectOutbound(settings))
         outbounds.add(buildBlockOutbound())
+        outbounds.add(buildDnsOutbound())
         root.add("outbounds", outbounds)
 
         // 5. DNS 与可选 FakeDNS
-        root.add("dns", buildDns(settings))
+        root.add("dns", buildDns(settings, resolvedHosts))
         if (settings.enableFakeDns) {
             root.add("fakedns", JsonArray().apply {
                 add(JsonObject().apply {
@@ -124,6 +129,7 @@ object XrayConfigGenerator {
                 add(cloned)
                 add(buildDirectOutbound(settings))
                 add(buildBlockOutbound())
+                add(buildDnsOutbound())
             })
             root.add("dns", buildDns(settings))
             root.add("routing", buildRouting(settings))
@@ -179,7 +185,11 @@ object XrayConfigGenerator {
         }
     }
 
-    fun buildProxyOutbound(node: ServerNode, settings: AppSettings): JsonObject {
+    fun buildProxyOutbound(
+        node: ServerNode,
+        settings: AppSettings,
+        resolvedHosts: Map<String, List<String>> = emptyMap()
+    ): JsonObject {
         val outbound = JsonObject()
         outbound.addProperty("tag", "proxy")
 
@@ -296,6 +306,19 @@ object XrayConfigGenerator {
             ProtocolType.CUSTOM_JSON -> {
                 outbound.addProperty("protocol", "freedom")
             }
+        }
+        if (resolvedHosts.containsKey(node.server) && node.protocol != ProtocolType.CUSTOM_JSON) {
+            val stream = if (outbound.has("streamSettings")) {
+                outbound.getAsJsonObject("streamSettings")
+            } else {
+                JsonObject().also { outbound.add("streamSettings", it) }
+            }
+            val sockopt = if (stream.has("sockopt")) {
+                stream.getAsJsonObject("sockopt")
+            } else {
+                JsonObject().also { stream.add("sockopt", it) }
+            }
+            sockopt.addProperty("domainStrategy", if (settings.enableIpv6) "UseIP" else "UseIPv4")
         }
         return outbound
     }
@@ -489,7 +512,17 @@ object XrayConfigGenerator {
         }
     }
 
-    private fun buildDns(settings: AppSettings): JsonObject {
+    private fun buildDnsOutbound(): JsonObject {
+        return JsonObject().apply {
+            addProperty("tag", "dns-out")
+            addProperty("protocol", "dns")
+        }
+    }
+
+    private fun buildDns(
+        settings: AppSettings,
+        resolvedHosts: Map<String, List<String>> = emptyMap()
+    ): JsonObject {
         val servers = JsonArray()
         if (settings.enableFakeDns) {
             servers.add("fakedns")
@@ -499,6 +532,7 @@ object XrayConfigGenerator {
 
         if (settings.routingMode == RoutingMode.RULE_BYPASS_CN) {
             servers.add(JsonObject().apply {
+                addProperty("tag", "dns-direct")
                 addProperty("address", directDns)
                 add("domains", JsonArray().apply { add("geosite:cn") })
                 add("expectIPs", JsonArray().apply { add("geoip:cn") })
@@ -507,6 +541,8 @@ object XrayConfigGenerator {
                 addProperty("address", remoteDns)
                 add("domains", JsonArray().apply { add("geosite:geolocation-!cn") })
             })
+            // 未命中上述集合的域名回落到远端 DNS
+            servers.add(remoteDns)
         } else if (settings.routingMode == RoutingMode.DIRECT) {
             servers.add(directDns)
         } else {
@@ -514,6 +550,20 @@ object XrayConfigGenerator {
         }
 
         return JsonObject().apply {
+            addProperty("tag", "dns-module")
+            if (resolvedHosts.isNotEmpty()) {
+                val hostsObj = JsonObject()
+                resolvedHosts.forEach { (domain, ips) ->
+                    if (ips.size == 1) {
+                        hostsObj.addProperty(domain, ips.first())
+                    } else if (ips.size > 1) {
+                        hostsObj.add(domain, JsonArray().apply { ips.forEach { add(it) } })
+                    }
+                }
+                if (hostsObj.size() > 0) {
+                    add("hosts", hostsObj)
+                }
+            }
             add("servers", servers)
             addProperty("queryStrategy", if (settings.enableIpv6) "UseIP" else "UseIPv4")
         }
@@ -521,6 +571,28 @@ object XrayConfigGenerator {
 
     private fun buildRouting(settings: AppSettings): JsonObject {
         val rules = JsonArray()
+
+        if (settings.routingMode != RoutingMode.DIRECT) {
+            // 接管来自 socks 入站的 DNS 请求交由内置 DNS 模块分流/FakeDNS 处理
+            rules.add(JsonObject().apply {
+                addProperty("type", "field")
+                add("inboundTag", JsonArray().apply { add("socks") })
+                addProperty("port", "53")
+                addProperty("outboundTag", "dns-out")
+            })
+            if (settings.routingMode == RoutingMode.RULE_BYPASS_CN) {
+                rules.add(JsonObject().apply {
+                    addProperty("type", "field")
+                    add("inboundTag", JsonArray().apply { add("dns-direct") })
+                    addProperty("outboundTag", "direct")
+                })
+            }
+            rules.add(JsonObject().apply {
+                addProperty("type", "field")
+                add("inboundTag", JsonArray().apply { add("dns-module") })
+                addProperty("outboundTag", "proxy")
+            })
+        }
 
         // 1. 用户自定义屏蔽规则
         addCustomRuleIfPresent(rules, settings.customBlockRules, "block")
