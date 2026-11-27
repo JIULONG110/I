@@ -1,0 +1,17 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <!-- 外围通信圆弧 -->
+    <path
+        android:fillColor="#00000000"
+        android:pathData="M54,24A30,30 0,1 1,24 54"
+        android:strokeColor="#40E0D0"
+        android:strokeLineCap="round"
+        android:strokeWidth="4.5" />
+    <!-- 中心字母 I -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M43,34H65V41H57.8V67H65V74H43V67H50.2V41H43V34Z" />
+</vector>

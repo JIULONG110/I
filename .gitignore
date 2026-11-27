@@ -1,0 +1,23 @@
+# Android / Gradle 忽略文件
+*.iml
+.gradle/
+/local.properties
+/.idea/
+.DS_Store
+/build/
+*/build/
+captures/
+.externalNativeBuild/
+.cxx/
+*.apk
+*.aab
+*.ap_
+*.dex
+*.jks
+*.keystore
+!gradle/wrapper/gradle-wrapper.jar
+
+# 构建时自动下载的大体积内核与 Geo 规则库（见 gradle downloadCoreAssets 任务）
+app/libs/*.aar
+app/libs/*.jar
+app/src/main/assets/*.dat
