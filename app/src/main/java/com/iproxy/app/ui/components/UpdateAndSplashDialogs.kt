@@ -93,7 +93,9 @@ fun SplashBrandOverlay(
                 .fillMaxSize()
                 .background(
                     Brush.verticalGradient(
-                        listOf(Color(0xFF030406), Color(0xFF0A0E16), Color(0xFF04060A))
+                        0.0f to Color(0xFF050912),
+                        0.58f to Color(0xFF08111F),
+                        1.0f to Color(0xFF050A14)
                     )
                 ),
             contentAlignment = Alignment.Center
@@ -104,21 +106,21 @@ fun SplashBrandOverlay(
             ) {
                 BlackBrandLogo(
                     size = 96.dp,
-                    accentGlow = Color(0xFFCBD5E1)
+                    accentGlow = Color(0xFF53CAFF)
                 )
                 Spacer(modifier = Modifier.height(18.dp))
                 Text(
                     text = "I",
                     fontSize = 34.sp,
                     fontWeight = FontWeight.Black,
-                    color = Color.White,
+                    color = Color(0xFFEFF7FF),
                     letterSpacing = 2.sp
                 )
                 Spacer(modifier = Modifier.height(6.dp))
                 Text(
                     text = if (isCheckingUpdate) "正在检查版本更新..." else "极简加密代理",
                     style = MaterialTheme.typography.bodySmall,
-                    color = Color(0xFF94A3B8)
+                    color = Color(0xFF9FB2C9)
                 )
             }
         }

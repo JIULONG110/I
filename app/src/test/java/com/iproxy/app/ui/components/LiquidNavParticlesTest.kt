@@ -53,8 +53,11 @@ class LiquidNavParticlesTest {
     }
 
     @Test
-    fun `particle field trajectories stay bounded and smoothly curve over time`() {
+    fun `particle field trajectories stay bounded and match prototype 104-particle flow speed`() {
         val count = NavParticleField.specs.size
+        assertEquals(104, count)
+        assertTrue(NavParticleField.specs.all { it.speedX >= 0.08f }, "Particles must flow briskly like prototype")
+
         val x0 = FloatArray(count)
         val y0 = FloatArray(count)
         val a0 = FloatArray(count)
@@ -63,7 +66,7 @@ class LiquidNavParticlesTest {
         val a1 = FloatArray(count)
 
         NavParticleField.sampleInto(0f, x0, y0, a0)
-        NavParticleField.sampleInto(12.5f, x1, y1, a1)
+        NavParticleField.sampleInto(1.5f, x1, y1, a1)
 
         var movedCount = 0
         var curvedYCount = 0
@@ -78,6 +81,28 @@ class LiquidNavParticlesTest {
 
         assertEquals(count, movedCount)
         assertTrue(curvedYCount > count / 2)
+    }
+
+    @Test
+    fun `sub-canvases sample core 48 and mode 18 subsets cleanly`() {
+        for (subsetSize in listOf(18, 48)) {
+            val x = FloatArray(subsetSize)
+            val y = FloatArray(subsetSize)
+            val a = FloatArray(subsetSize)
+            NavParticleField.sampleInto(
+                elapsedSec = 2.4f,
+                outNormX = x,
+                outNormY = y,
+                outAlpha = a,
+                particleCount = subsetSize,
+                xSpeedScale = 2.2f
+            )
+            for (i in 0 until subsetSize) {
+                assertTrue(x[i] in -0.09f..1.09f)
+                assertTrue(y[i] in 0.10f..0.90f)
+                assertTrue(a[i] in 0f..1f)
+            }
+        }
     }
 
     private fun assertNotWhiteOrGray(color: Color) {

@@ -1,6 +1,7 @@
 package com.iproxy.app.ui.screens
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -11,8 +12,10 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -38,11 +41,7 @@ import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.PrimaryTabRow
-import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Switch
-import androidx.compose.material3.Tab
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
@@ -55,6 +54,8 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
@@ -66,14 +67,21 @@ import com.iproxy.app.data.model.PerAppMode
 import com.iproxy.app.data.model.RoutingMode
 import com.iproxy.app.data.repository.InstalledAppInfo
 import com.iproxy.app.ui.components.LiquidGlassCard
+import com.iproxy.app.ui.components.ProtoTextMuted
+import com.iproxy.app.ui.components.ProtoTextPrimary
+import com.iproxy.app.ui.components.ProtoTextSecondary
+import com.iproxy.app.ui.components.ProtoTextSubtle
+import com.iproxy.app.ui.components.PrototypeRoutingModeCard
+import com.iproxy.app.ui.components.PrototypeSwitch
+import com.iproxy.app.ui.components.prototypePrimaryButtonColors
+import com.iproxy.app.ui.components.prototypeTextFieldColors
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 
 /**
- * 分流规则、分应用代理与实时核心日志页面
+ * 分流规则、分应用代理与实时核心日志页面：保持与首页一致的暗黑蓝宝石材质及粒子选中动效
  */
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun RulesAndLogsScreen(
     settings: AppSettings,
@@ -88,52 +96,94 @@ fun RulesAndLogsScreen(
 ) {
     var selectedTab by remember { mutableIntStateOf(0) }
 
-    Scaffold(
-        containerColor = Color.Transparent,
-        topBar = {
-            TopAppBar(
-                title = { Text("分流与日志") },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.Transparent)
-            )
-        }
-    ) { padding ->
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(padding)
-        ) {
-            PrimaryTabRow(
-                selectedTabIndex = selectedTab,
-                containerColor = Color.Transparent
-            ) {
-                Tab(
-                    selected = selectedTab == 0,
-                    onClick = { selectedTab = 0 },
-                    text = { Text("分流规则") }
-                )
-                Tab(
-                    selected = selectedTab == 1,
-                    onClick = { selectedTab = 1 },
-                    text = { Text("运行日志 (${logs.size})") }
-                )
-            }
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .statusBarsPadding()
+            .padding(horizontal = 18.dp)
+    ) {
+        Spacer(modifier = Modifier.height(12.dp))
 
-            if (selectedTab == 0) {
-                RulesConfigTab(
-                    settings = settings,
-                    isUpdatingGeo = isUpdatingGeo,
-                    onUpdateSettings = onUpdateSettings,
-                    onSetRoutingMode = onSetRoutingMode,
-                    onUpdateGeoDatabases = onUpdateGeoDatabases,
-                    onOpenPerAppSelector = onOpenPerAppSelector
-                )
-            } else {
-                LogsConsoleTab(
-                    logs = logs,
-                    onCopyLogs = onCopyLogs,
-                    onClearLogs = onClearLogs
-                )
+        Text(
+            text = "智能分流",
+            fontSize = 24.sp,
+            lineHeight = 29.sp,
+            fontWeight = FontWeight.Bold,
+            color = ProtoTextPrimary
+        )
+        Spacer(modifier = Modifier.height(4.dp))
+        Text(
+            text = "选择网络流量的转发方式与过滤规则",
+            fontSize = 13.sp,
+            color = ProtoTextMuted
+        )
+
+        Spacer(modifier = Modifier.height(12.dp))
+
+        // 暗黑玻璃分栏切换（分流规则 / 运行日志）
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(16.dp))
+                .background(Color(0xD90A1422))
+                .border(1.dp, Color(0x55709ACA), RoundedCornerShape(16.dp))
+                .padding(4.dp),
+            horizontalArrangement = Arrangement.spacedBy(6.dp)
+        ) {
+            listOf("分流规则", "运行日志 (${logs.size})").forEachIndexed { index, title ->
+                val active = selectedTab == index
+                val pillShape = RoundedCornerShape(12.dp)
+                Box(
+                    modifier = Modifier
+                        .weight(1f)
+                        .clip(pillShape)
+                        .background(
+                            if (active) {
+                                Brush.linearGradient(listOf(Color(0x9E1779E6), Color(0xC2074097)))
+                            } else {
+                                Brush.linearGradient(listOf(Color.Transparent, Color.Transparent))
+                            },
+                            pillShape
+                        )
+                        .border(
+                            width = 1.dp,
+                            color = if (active) Color(0xBA79D1FF) else Color.Transparent,
+                            shape = pillShape
+                        )
+                        .clickable { selectedTab = index }
+                        .padding(vertical = 9.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        text = title,
+                        fontSize = 13.sp,
+                        fontWeight = if (active) FontWeight.Bold else FontWeight.Medium,
+                        color = if (active) Color.White else Color(0xFF9FB2C9),
+                        maxLines = 1
+                    )
+                }
             }
+        }
+
+        Spacer(modifier = Modifier.height(12.dp))
+
+        if (selectedTab == 0) {
+            RulesConfigTab(
+                settings = settings,
+                isUpdatingGeo = isUpdatingGeo,
+                onUpdateSettings = onUpdateSettings,
+                onSetRoutingMode = onSetRoutingMode,
+                onUpdateGeoDatabases = onUpdateGeoDatabases,
+                onOpenPerAppSelector = onOpenPerAppSelector,
+                modifier = Modifier.weight(1f)
+            )
+        } else {
+            LogsConsoleTab(
+                logs = logs,
+                onCopyLogs = onCopyLogs,
+                onClearLogs = onClearLogs,
+                modifier = Modifier.weight(1f)
+            )
         }
     }
 }
@@ -145,71 +195,79 @@ private fun RulesConfigTab(
     onUpdateSettings: ((AppSettings) -> AppSettings) -> Unit,
     onSetRoutingMode: (RoutingMode) -> Unit,
     onUpdateGeoDatabases: () -> Unit,
-    onOpenPerAppSelector: () -> Unit
+    onOpenPerAppSelector: () -> Unit,
+    modifier: Modifier = Modifier
 ) {
     var directRules by remember(settings.customDirectRules) { mutableStateOf(settings.customDirectRules) }
     var proxyRules by remember(settings.customProxyRules) { mutableStateOf(settings.customProxyRules) }
     var blockRules by remember(settings.customBlockRules) { mutableStateOf(settings.customBlockRules) }
 
+    val routePreview = when (settings.routingMode) {
+        RoutingMode.RULE_BYPASS_CN -> "中国大陆域名与 IP 将直连，海外与未命中流量通过当前节点代理。"
+        RoutingMode.GLOBAL_PROXY -> "除局域网外的流量将通过当前节点转发。"
+        RoutingMode.DIRECT -> "所有流量均直连访问，不经过代理节点。"
+    }
+
     Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .verticalScroll(rememberScrollState())
-            .padding(16.dp),
-        verticalArrangement = Arrangement.spacedBy(12.dp)
+        modifier = modifier
+            .fillMaxWidth()
+            .verticalScroll(rememberScrollState()),
+        verticalArrangement = Arrangement.spacedBy(10.dp)
     ) {
         if (isUpdatingGeo) {
-            LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
+            LinearProgressIndicator(
+                color = Color(0xFF53CAFF),
+                trackColor = Color(0xFF142338),
+                modifier = Modifier.fillMaxWidth()
+            )
         }
 
-        // 路由模式卡片
-        LiquidGlassCard(modifier = Modifier.fillMaxWidth()) {
+        // 与首页一致的粒子分流卡
+        PrototypeRoutingModeCard(
+            routingMode = settings.routingMode,
+            onSelectMode = onSetRoutingMode
+        )
+
+        // 当前规则预览卡
+        LiquidGlassCard(modifier = Modifier.fillMaxWidth(), cornerRadius = 24.dp) {
             Column(modifier = Modifier.padding(16.dp)) {
-                Text("主路由模式", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
-                Spacer(modifier = Modifier.height(6.dp))
-                RoutingMode.entries.forEach { mode ->
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clickable { onSetRoutingMode(mode) }
-                            .padding(vertical = 6.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        RadioButton(
-                            selected = settings.routingMode == mode,
-                            onClick = { onSetRoutingMode(mode) }
-                        )
-                        Column(modifier = Modifier.weight(1f)) {
-                            Text(mode.title, fontWeight = FontWeight.Medium)
-                            Text(
-                                mode.subtitle,
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                        }
-                    }
-                }
+                Text(
+                    text = "当前规则预览",
+                    fontSize = 15.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = ProtoTextPrimary
+                )
+                Spacer(modifier = Modifier.height(7.dp))
+                Text(
+                    text = routePreview,
+                    fontSize = 12.sp,
+                    lineHeight = 19.sp,
+                    color = ProtoTextSecondary
+                )
             }
         }
 
         // 广告拦截 & Geo 数据库更新
-        LiquidGlassCard(modifier = Modifier.fillMaxWidth()) {
-            Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+        LiquidGlassCard(modifier = Modifier.fillMaxWidth(), cornerRadius = 24.dp) {
+            Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 Row(
-                    modifier = Modifier.fillMaxWidth(),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable { onUpdateSettings { it.copy(blockAds = !settings.blockAds) } },
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Icon(Icons.Rounded.Block, null, tint = MaterialTheme.colorScheme.primary)
+                    Icon(Icons.Rounded.Block, null, tint = Color(0xFF59BAFF))
                     Spacer(modifier = Modifier.width(12.dp))
                     Column(modifier = Modifier.weight(1f)) {
-                        Text("拦截常见广告域名", fontWeight = FontWeight.Medium)
+                        Text("拦截常见广告域名", fontSize = 14.sp, fontWeight = FontWeight.SemiBold, color = ProtoTextPrimary)
                         Text(
                             "基于 geosite:category-ads-all 自动过滤广告请求",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                            fontSize = 11.sp,
+                            color = ProtoTextMuted
                         )
                     }
-                    Switch(
+                    Spacer(modifier = Modifier.width(8.dp))
+                    PrototypeSwitch(
                         checked = settings.blockAds,
                         onCheckedChange = { enabled ->
                             onUpdateSettings { it.copy(blockAds = enabled) }
@@ -220,49 +278,77 @@ private fun RulesConfigTab(
                 OutlinedButton(
                     onClick = onUpdateGeoDatabases,
                     enabled = !isUpdatingGeo,
+                    shape = RoundedCornerShape(14.dp),
+                    border = androidx.compose.foundation.BorderStroke(1.dp, Color(0x8865ACF7)),
                     modifier = Modifier.fillMaxWidth()
                 ) {
-                    Icon(Icons.Rounded.CloudDownload, null, modifier = Modifier.size(18.dp))
+                    Icon(Icons.Rounded.CloudDownload, null, tint = Color(0xFFB6E9FF), modifier = Modifier.size(18.dp))
                     Spacer(modifier = Modifier.width(8.dp))
-                    Text(if (isUpdatingGeo) "正在下载最新规则库..." else "在线更新 GeoIP / GeoSite 规则库")
+                    Text(
+                        text = if (isUpdatingGeo) "正在下载最新规则库..." else "在线更新 GeoIP / GeoSite 规则库",
+                        color = ProtoTextPrimary
+                    )
                 }
             }
         }
 
         // 分应用代理卡片
-        LiquidGlassCard(modifier = Modifier.fillMaxWidth()) {
-            Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        LiquidGlassCard(modifier = Modifier.fillMaxWidth(), cornerRadius = 24.dp) {
+            Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Icon(Icons.Rounded.Apps, null, tint = MaterialTheme.colorScheme.primary)
+                    Icon(Icons.Rounded.Apps, null, tint = Color(0xFF59BAFF))
                     Spacer(modifier = Modifier.width(10.dp))
                     Column(modifier = Modifier.weight(1f)) {
-                        Text("分应用代理", fontWeight = FontWeight.Bold)
+                        Text("分应用代理", fontSize = 15.sp, fontWeight = FontWeight.Bold, color = ProtoTextPrimary)
                         Text(
                             "当前: ${settings.perAppMode.title}（已选 ${settings.selectedAppPackages.size} 个应用）",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                            fontSize = 11.sp,
+                            color = ProtoTextMuted
                         )
                     }
                 }
-                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                Row(horizontalArrangement = Arrangement.spacedBy(6.dp), modifier = Modifier.fillMaxWidth()) {
                     PerAppMode.entries.forEach { mode ->
-                        FilterChip(
-                            selected = settings.perAppMode == mode,
-                            onClick = { onUpdateSettings { it.copy(perAppMode = mode) } },
-                            label = {
-                                Text(
-                                    when (mode) {
-                                        PerAppMode.DISABLED -> "关闭"
-                                        PerAppMode.BYPASS_SELECTED -> "绕过所选"
-                                        PerAppMode.ONLY_PROXY_SELECTED -> "仅代理所选"
-                                    }
+                        val active = settings.perAppMode == mode
+                        val label = when (mode) {
+                            PerAppMode.DISABLED -> "关闭"
+                            PerAppMode.BYPASS_SELECTED -> "绕过所选"
+                            PerAppMode.ONLY_PROXY_SELECTED -> "仅代理所选"
+                        }
+                        Box(
+                            modifier = Modifier
+                                .weight(1f)
+                                .clip(RoundedCornerShape(12.dp))
+                                .background(
+                                    if (active) Brush.linearGradient(listOf(Color(0x9E1779E6), Color(0xC2074097)))
+                                    else Brush.linearGradient(listOf(Color(0xF02D3848), Color(0xFA17202E)))
                                 )
-                            }
-                        )
+                                .border(
+                                    width = 1.dp,
+                                    color = if (active) Color(0xD179D1FF) else Color(0x527D91AD),
+                                    shape = RoundedCornerShape(12.dp)
+                                )
+                                .clickable { onUpdateSettings { it.copy(perAppMode = mode) } }
+                                .padding(vertical = 9.dp),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(
+                                text = label,
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.SemiBold,
+                                color = if (active) Color.White else Color(0xFFC0D4EA),
+                                maxLines = 1
+                            )
+                        }
                     }
                 }
                 if (settings.perAppMode != PerAppMode.DISABLED) {
-                    Button(onClick = onOpenPerAppSelector, modifier = Modifier.fillMaxWidth()) {
+                    Button(
+                        onClick = onOpenPerAppSelector,
+                        colors = prototypePrimaryButtonColors(),
+                        shape = RoundedCornerShape(14.dp),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
                         Text("选择应用 (${settings.selectedAppPackages.size})")
                     }
                 }
@@ -270,15 +356,16 @@ private fun RulesConfigTab(
         }
 
         // 自定义域名/IP规则
-        LiquidGlassCard(modifier = Modifier.fillMaxWidth()) {
+        LiquidGlassCard(modifier = Modifier.fillMaxWidth(), cornerRadius = 24.dp) {
             Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                Text("自定义规则（每行一个域名或 IP/CIDR）", fontWeight = FontWeight.Bold)
+                Text("自定义规则（每行一个域名或 IP/CIDR）", fontSize = 14.sp, fontWeight = FontWeight.Bold, color = ProtoTextPrimary)
                 OutlinedTextField(
                     value = proxyRules,
                     onValueChange = { proxyRules = it },
                     label = { Text("强制走代理规则 (例如 openai.com, google.com)") },
                     minLines = 2,
                     maxLines = 4,
+                    colors = prototypeTextFieldColors(),
                     modifier = Modifier.fillMaxWidth()
                 )
                 OutlinedTextField(
@@ -287,6 +374,7 @@ private fun RulesConfigTab(
                     label = { Text("强制直连规则 (例如 baidu.com, 192.168.0.0/16)") },
                     minLines = 2,
                     maxLines = 4,
+                    colors = prototypeTextFieldColors(),
                     modifier = Modifier.fillMaxWidth()
                 )
                 OutlinedTextField(
@@ -295,9 +383,12 @@ private fun RulesConfigTab(
                     label = { Text("屏蔽拦截规则") },
                     minLines = 2,
                     maxLines = 4,
+                    colors = prototypeTextFieldColors(),
                     modifier = Modifier.fillMaxWidth()
                 )
                 Button(
+                    colors = prototypePrimaryButtonColors(),
+                    shape = RoundedCornerShape(14.dp),
                     onClick = {
                         onUpdateSettings {
                             it.copy(
@@ -313,6 +404,9 @@ private fun RulesConfigTab(
                 }
             }
         }
+
+        Spacer(modifier = Modifier.navigationBarsPadding())
+        Spacer(modifier = Modifier.height(112.dp))
     }
 }
 
@@ -320,7 +414,8 @@ private fun RulesConfigTab(
 private fun LogsConsoleTab(
     logs: List<LogEntry>,
     onCopyLogs: () -> Unit,
-    onClearLogs: () -> Unit
+    onClearLogs: () -> Unit,
+    modifier: Modifier = Modifier
 ) {
     var levelFilter by remember { mutableStateOf("ALL") }
     val timeFormatter = remember { SimpleDateFormat("HH:mm:ss", Locale.ROOT) }
@@ -328,44 +423,69 @@ private fun LogsConsoleTab(
         if (levelFilter == "ALL") logs else logs.filter { it.level == levelFilter }
     }
 
-    Column(modifier = Modifier.fillMaxSize()) {
+    Column(
+        modifier = modifier
+            .fillMaxWidth()
+            .navigationBarsPadding()
+            .padding(bottom = 104.dp)
+    ) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 16.dp, vertical = 8.dp),
+                .padding(vertical = 4.dp),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
             Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                 listOf("ALL", "INFO", "WARN", "ERROR").forEach { lvl ->
-                    FilterChip(
-                        selected = levelFilter == lvl,
-                        onClick = { levelFilter = lvl },
-                        label = { Text(lvl) }
-                    )
+                    val active = levelFilter == lvl
+                    Box(
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(10.dp))
+                            .background(
+                                if (active) Color(0x9E1779E6) else Color(0xD91A283C)
+                            )
+                            .border(
+                                width = 1.dp,
+                                color = if (active) Color(0xBA79D1FF) else Color(0x47709ACA),
+                                shape = RoundedCornerShape(10.dp)
+                            )
+                            .clickable { levelFilter = lvl }
+                            .padding(horizontal = 10.dp, vertical = 6.dp)
+                    ) {
+                        Text(
+                            text = lvl,
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            color = if (active) Color.White else ProtoTextMuted
+                        )
+                    }
                 }
             }
             Row {
                 IconButton(onClick = onCopyLogs) {
-                    Icon(Icons.Rounded.ContentCopy, contentDescription = "复制日志")
+                    Icon(Icons.Rounded.ContentCopy, contentDescription = "复制日志", tint = Color(0xFFB7D4F2))
                 }
                 IconButton(onClick = onClearLogs) {
-                    Icon(Icons.Rounded.DeleteSweep, contentDescription = "清空日志")
+                    Icon(Icons.Rounded.DeleteSweep, contentDescription = "清空日志", tint = Color(0xFFB7D4F2))
                 }
             }
         }
 
+        Spacer(modifier = Modifier.height(6.dp))
+
         Box(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(horizontal = 12.dp, vertical = 6.dp)
-                .background(Color(0xFF0A0F1A), RoundedCornerShape(14.dp))
+                .clip(RoundedCornerShape(18.dp))
+                .background(Color(0xEA08101C))
+                .border(1.dp, Color(0x52709ACA), RoundedCornerShape(18.dp))
                 .padding(12.dp)
         ) {
             if (filteredLogs.isEmpty()) {
                 Text(
                     text = "暂无运行日志，连接节点后将在此实时输出诊断信息...",
-                    color = Color(0xFF64748B),
+                    color = ProtoTextSubtle,
                     fontFamily = FontFamily.Monospace,
                     fontSize = 12.sp
                 )
@@ -425,10 +545,15 @@ fun PerAppSelectorScreen(
 
     Scaffold(
         containerColor = Color.Transparent,
+        contentColor = ProtoTextPrimary,
         topBar = {
             TopAppBar(
-                title = { Text("选择分应用代理 (${selectedPackages.size})") },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.Transparent),
+                title = { Text("选择分应用代理 (${selectedPackages.size})", color = ProtoTextPrimary) },
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = Color.Transparent,
+                    titleContentColor = ProtoTextPrimary,
+                    navigationIconContentColor = ProtoTextPrimary
+                ),
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(Icons.AutoMirrored.Rounded.ArrowBack, contentDescription = "返回")
@@ -453,8 +578,9 @@ fun PerAppSelectorScreen(
                     value = query,
                     onValueChange = { query = it },
                     placeholder = { Text("搜索应用名称或包名...") },
-                    leadingIcon = { Icon(Icons.Rounded.Search, null) },
+                    leadingIcon = { Icon(Icons.Rounded.Search, null, tint = Color(0xFF79D1FF)) },
                     singleLine = true,
+                    colors = prototypeTextFieldColors(),
                     modifier = Modifier.weight(1f)
                 )
                 FilterChip(
@@ -466,34 +592,40 @@ fun PerAppSelectorScreen(
 
             if (isLoading) {
                 Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                    CircularProgressIndicator()
+                    CircularProgressIndicator(color = Color(0xFF53CAFF))
                 }
             } else {
                 LazyColumn(
                     contentPadding = PaddingValues(16.dp),
-                    verticalArrangement = Arrangement.spacedBy(6.dp)
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
                     items(filtered, key = { it.packageName }) { app ->
                         val checked = app.packageName in selectedPackages
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .clickable { onTogglePackage(app.packageName) }
-                                .padding(vertical = 8.dp, horizontal = 4.dp),
-                            verticalAlignment = Alignment.CenterVertically
+                        LiquidGlassCard(
+                            modifier = Modifier.fillMaxWidth(),
+                            cornerRadius = 16.dp,
+                            accentBorder = if (checked) Color(0xCC46B5FF) else null,
+                            onClick = { onTogglePackage(app.packageName) }
                         ) {
-                            Checkbox(
-                                checked = checked,
-                                onCheckedChange = { onTogglePackage(app.packageName) }
-                            )
-                            Spacer(modifier = Modifier.width(8.dp))
-                            Column(modifier = Modifier.weight(1f)) {
-                                Text(app.label, fontWeight = FontWeight.Medium)
-                                Text(
-                                    app.packageName,
-                                    style = MaterialTheme.typography.labelSmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(vertical = 8.dp, horizontal = 10.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Checkbox(
+                                    checked = checked,
+                                    onCheckedChange = { onTogglePackage(app.packageName) }
                                 )
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Column(modifier = Modifier.weight(1f)) {
+                                    Text(app.label, fontWeight = FontWeight.Medium, color = ProtoTextPrimary)
+                                    Text(
+                                        app.packageName,
+                                        style = MaterialTheme.typography.labelSmall,
+                                        color = ProtoTextMuted
+                                    )
+                                }
                             }
                         }
                     }

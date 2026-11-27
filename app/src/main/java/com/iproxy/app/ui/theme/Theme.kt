@@ -1,15 +1,11 @@
 package com.iproxy.app.ui.theme
 
-import android.os.Build
 import androidx.activity.ComponentActivity
 import androidx.activity.SystemBarStyle
 import androidx.activity.enableEdgeToEdge
-import androidx.compose.foundation.isSystemInDarkTheme
+import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.darkColorScheme
-import androidx.compose.material3.dynamicDarkColorScheme
-import androidx.compose.material3.dynamicLightColorScheme
-import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.Immutable
@@ -19,10 +15,10 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import com.iproxy.app.data.model.ThemeMode
 
-val CyanAccent = Color(0xFF00D2D3)
-val BrandBlue = Color(0xFF0A84FF)
-val BrandDeepNavy = Color(0xFF05070C)
-val BrandCardDark = Color(0xFF101624)
+val CyanAccent = Color(0xFF53CAFF)
+val BrandBlue = Color(0xFF168BFF)
+val BrandDeepNavy = Color(0xFF050A14)
+val BrandCardDark = Color(0xFF0E192A)
 val ConnectedGreen = Color(0xFF10B981)
 val WarningAmber = Color(0xFFF59E0B)
 val ErrorRed = Color(0xFFEF4444)
@@ -34,6 +30,7 @@ data class LiquidThemePalette(
     val ambientOrbPrimary: Color,
     val ambientOrbSecondary: Color,
     val glassStart: Color,
+    val glassMid: Color,
     val glassEnd: Color,
     val glassElevatedStart: Color,
     val glassElevatedEnd: Color,
@@ -49,125 +46,87 @@ data class LiquidThemePalette(
 private val DarkLiquidPalette = LiquidThemePalette(
     isDark = true,
     backdropColors = listOf(
-        Color(0xFF030508),
-        Color(0xFF080D18),
-        Color(0xFF0B1323)
+        Color(0xFF050912),
+        Color(0xFF08111F),
+        Color(0xFF050A14)
     ),
-    ambientOrbPrimary = Color(0xFF0E7490),
-    ambientOrbSecondary = Color(0xFF1D4ED8),
-    glassStart = Color(0xAA172033),
-    glassEnd = Color(0x880D1320),
-    glassElevatedStart = Color(0xCC1E293E),
-    glassElevatedEnd = Color(0xAA111827),
-    glassBorderTop = Color(0x42FFFFFF),
-    glassBorderBottom = Color(0x1494A3B8),
-    dockStart = Color(0xCC131A29),
-    dockEnd = Color(0xBB090D16),
-    dockSelectedPill = Color(0x3800D2D3),
-    obsidianCoreTop = Color(0xFF1E2532),
-    obsidianCoreBottom = Color(0xFF07090E)
-)
-
-private val LightLiquidPalette = LiquidThemePalette(
-    isDark = false,
-    backdropColors = listOf(
-        Color(0xFFEAF1FB),
-        Color(0xFFF6F9FE),
-        Color(0xFFE3EEF9)
-    ),
-    ambientOrbPrimary = Color(0xFF38BDF8),
-    ambientOrbSecondary = Color(0xFF6366F1),
-    glassStart = Color(0xCCFFFFFF),
-    glassEnd = Color(0xA6F1F6FD),
-    glassElevatedStart = Color(0xE6FFFFFF),
-    glassElevatedEnd = Color(0xCCF4F8FF),
-    glassBorderTop = Color(0xF0FFFFFF),
-    glassBorderBottom = Color(0x240F172A),
-    dockStart = Color(0xDEFFFFFF),
-    dockEnd = Color(0xCCF1F5FB),
-    dockSelectedPill = Color(0x24006D77),
-    obsidianCoreTop = Color(0xFF232A36),
-    obsidianCoreBottom = Color(0xFF090B10)
+    ambientOrbPrimary = Color(0xFF0857AA),
+    ambientOrbSecondary = Color(0xFF063C87),
+    glassStart = Color(0xF51C293B),
+    glassMid = Color(0xFA0B1422),
+    glassEnd = Color(0xF50C1C34),
+    glassElevatedStart = Color(0xFC172739),
+    glassElevatedEnd = Color(0xFF08101C),
+    glassBorderTop = Color(0x75709ACA),
+    glassBorderBottom = Color(0x524679B5),
+    dockStart = Color(0xF5142334),
+    dockEnd = Color(0xFA08111E),
+    dockSelectedPill = Color(0x8F1779E6),
+    obsidianCoreTop = Color(0xFF1C293B),
+    obsidianCoreBottom = Color(0xFF08101C)
 )
 
 val LocalLiquidPalette = staticCompositionLocalOf { DarkLiquidPalette }
 
 private val DarkColorScheme = darkColorScheme(
     primary = CyanAccent,
-    onPrimary = Color(0xFF002022),
-    primaryContainer = Color(0xFF093B42),
-    onPrimaryContainer = Color(0xFF9AF6F7),
+    onPrimary = Color(0xFF031526),
+    primaryContainer = Color(0xFF12365E),
+    onPrimaryContainer = Color(0xFFEFF7FF),
     secondary = BrandBlue,
-    onSecondary = Color.White,
+    onSecondary = Color(0xFFFFFFFF),
+    secondaryContainer = Color(0xFF142D4B),
+    onSecondaryContainer = Color(0xFFC0D4EA),
+    tertiary = Color(0xFF59BAFF),
+    onTertiary = Color(0xFF031526),
     background = BrandDeepNavy,
-    onBackground = Color(0xFFF1F5F9),
+    onBackground = Color(0xFFEFF7FF),
     surface = BrandCardDark,
-    onSurface = Color(0xFFF1F5F9),
-    surfaceVariant = Color(0xFF192235),
-    onSurfaceVariant = Color(0xFF9FB2CE),
-    outline = Color(0xFF334155),
-    error = ErrorRed
+    onSurface = Color(0xFFEFF7FF),
+    surfaceVariant = Color(0xFF17263B),
+    onSurfaceVariant = Color(0xFF9FB2C9),
+    surfaceTint = BrandBlue,
+    inverseSurface = Color(0xFF142338),
+    inverseOnSurface = Color(0xFFEFF7FF),
+    outline = Color(0x75709ACA),
+    outlineVariant = Color(0x3B5D88B9),
+    surfaceContainerLowest = Color(0xFF050A14),
+    surfaceContainerLow = Color(0xFF0B1422),
+    surfaceContainer = Color(0xFF0E192A),
+    surfaceContainerHigh = Color(0xFF142338),
+    surfaceContainerHighest = Color(0xFF1C293B),
+    error = ErrorRed,
+    onError = Color(0xFFFFFFFF),
+    errorContainer = Color(0xFF3F1219),
+    onErrorContainer = Color(0xFFFEE2E2)
 )
 
-private val LightColorScheme = lightColorScheme(
-    primary = Color(0xFF006D77),
-    onPrimary = Color.White,
-    primaryContainer = Color(0xFFD0F4F6),
-    onPrimaryContainer = Color(0xFF002023),
-    secondary = BrandBlue,
-    onSecondary = Color.White,
-    background = Color(0xFFEEF4FB),
-    onBackground = Color(0xFF0F172A),
-    surface = Color(0xFFFFFFFF),
-    onSurface = Color(0xFF0F172A),
-    surfaceVariant = Color(0xFFE5EEF8),
-    onSurfaceVariant = Color(0xFF475569),
-    outline = Color(0xFFCBD5E1),
-    error = ErrorRed
-)
-
+/**
+ * 全应用唯一暗黑深海军蓝主题（忽略系统日夜间与动态取色，保持系统栏通透暗色）
+ */
+@Suppress("UNUSED_PARAMETER")
 @Composable
 fun IProxyTheme(
-    themeMode: ThemeMode = ThemeMode.SYSTEM,
+    themeMode: ThemeMode = ThemeMode.DARK,
     dynamicColor: Boolean = false,
     content: @Composable () -> Unit
 ) {
-    val isDark = when (themeMode) {
-        ThemeMode.SYSTEM -> isSystemInDarkTheme()
-        ThemeMode.LIGHT -> false
-        ThemeMode.DARK -> true
-    }
-
     val context = LocalContext.current
     SideEffect {
         val activity = context as? ComponentActivity ?: return@SideEffect
-        val barStyle = if (isDark) {
-            SystemBarStyle.dark(android.graphics.Color.TRANSPARENT)
-        } else {
-            SystemBarStyle.light(
-                android.graphics.Color.TRANSPARENT,
-                android.graphics.Color.TRANSPARENT
-            )
-        }
+        val barStyle = SystemBarStyle.dark(android.graphics.Color.TRANSPARENT)
         activity.enableEdgeToEdge(
             statusBarStyle = barStyle,
             navigationBarStyle = barStyle
         )
     }
 
-    val colorScheme = when {
-        dynamicColor && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S -> {
-            if (isDark) dynamicDarkColorScheme(context) else dynamicLightColorScheme(context)
-        }
-        isDark -> DarkColorScheme
-        else -> LightColorScheme
-    }
-
-    val liquidPalette = if (isDark) DarkLiquidPalette else LightLiquidPalette
-
-    CompositionLocalProvider(LocalLiquidPalette provides liquidPalette) {
+    CompositionLocalProvider(
+        LocalLiquidPalette provides DarkLiquidPalette,
+        LocalContentColor provides DarkColorScheme.onBackground
+    ) {
         MaterialTheme(
-            colorScheme = colorScheme,
+            colorScheme = DarkColorScheme,
             content = content
         )
     }

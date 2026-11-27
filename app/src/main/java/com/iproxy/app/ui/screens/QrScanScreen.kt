@@ -17,8 +17,10 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.rounded.PhotoLibrary
@@ -30,6 +32,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -39,12 +42,16 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import com.iproxy.app.ui.QrCodeHelper
+import com.iproxy.app.ui.components.ProtoTextPrimary
+import com.iproxy.app.ui.components.ProtoTextSecondary
+import com.iproxy.app.ui.components.prototypePrimaryButtonColors
 import java.util.concurrent.Executors
 import java.util.concurrent.atomic.AtomicBoolean
 
@@ -91,9 +98,16 @@ fun QrScanScreen(
     }
 
     Scaffold(
+        containerColor = Color.Transparent,
+        contentColor = ProtoTextPrimary,
         topBar = {
             TopAppBar(
-                title = { Text("扫描节点或订阅二维码") },
+                title = { Text("扫描节点或订阅二维码", color = ProtoTextPrimary) },
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = Color(0xAA050A14),
+                    titleContentColor = ProtoTextPrimary,
+                    navigationIconContentColor = ProtoTextPrimary
+                ),
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(Icons.AutoMirrored.Rounded.ArrowBack, contentDescription = "返回")
@@ -173,16 +187,23 @@ fun QrScanScreen(
                 ) {
                     Text(
                         text = "需要相机权限以扫描二维码，您也可以直接从相册图片中识别二维码。",
-                        style = MaterialTheme.typography.bodyMedium
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = ProtoTextSecondary
                     )
                     Spacer(modifier = Modifier.height(16.dp))
-                    Button(onClick = { permissionLauncher.launch(Manifest.permission.CAMERA) }) {
+                    Button(
+                        colors = prototypePrimaryButtonColors(),
+                        shape = RoundedCornerShape(14.dp),
+                        onClick = { permissionLauncher.launch(Manifest.permission.CAMERA) }
+                    ) {
                         Text("授予相机权限")
                     }
                 }
             }
 
             Button(
+                colors = prototypePrimaryButtonColors(),
+                shape = RoundedCornerShape(14.dp),
                 onClick = {
                     photoPickerLauncher.launch(
                         PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)
@@ -190,6 +211,7 @@ fun QrScanScreen(
                 },
                 modifier = Modifier
                     .align(Alignment.BottomCenter)
+                    .navigationBarsPadding()
                     .fillMaxWidth()
                     .padding(20.dp)
             ) {

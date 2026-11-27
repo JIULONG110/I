@@ -1,35 +1,36 @@
 package com.iproxy.app.ui.screens
 
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.SystemUpdate
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.TopAppBar
-import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -41,18 +42,23 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.iproxy.app.BuildConfig
 import com.iproxy.app.data.model.AppSettings
-import com.iproxy.app.data.model.ThemeMode
 import com.iproxy.app.ui.components.BlackBrandLogo
 import com.iproxy.app.ui.components.LiquidGlassCard
+import com.iproxy.app.ui.components.ProtoTextMuted
+import com.iproxy.app.ui.components.ProtoTextPrimary
+import com.iproxy.app.ui.components.ProtoTextSubtle
+import com.iproxy.app.ui.components.PrototypeSwitch
+import com.iproxy.app.ui.components.prototypePrimaryButtonColors
+import com.iproxy.app.ui.components.prototypeTextFieldColors
 import kotlinx.coroutines.launch
 import libv2ray.Libv2ray
 
 /**
- * 高级网络设置、外观主题、版本检查与配置备份页面
+ * 设置页：固定暗黑深蓝玻璃设计，移除所有日间/夜间切换控件，保留核心网络参数、备份与版本检查
  */
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SettingsScreen(
     settings: AppSettings,
@@ -61,7 +67,8 @@ fun SettingsScreen(
     onCheckUpdate: () -> Unit,
     onExportBackup: suspend () -> String,
     onImportBackup: (String) -> Unit,
-    onCopyText: (String, String) -> Unit
+    onCopyText: (String, String) -> Unit,
+    onShowMessage: (String) -> Unit
 ) {
     val scope = rememberCoroutineScope()
     var remoteDns by remember(settings.remoteDns) { mutableStateOf(settings.remoteDns) }
@@ -73,228 +80,251 @@ fun SettingsScreen(
     var showImportBackupDialog by remember { mutableStateOf(false) }
     val xrayVersion = remember { runCatching { Libv2ray.checkVersionX() }.getOrDefault("Xray-core") }
 
-    Scaffold(
-        containerColor = Color.Transparent,
-        topBar = {
-            TopAppBar(
-                title = { Text("设置") },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.Transparent)
-            )
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .statusBarsPadding()
+            .verticalScroll(rememberScrollState())
+            .padding(horizontal = 18.dp),
+        verticalArrangement = Arrangement.spacedBy(10.dp)
+    ) {
+        Spacer(modifier = Modifier.height(12.dp))
+
+        Text(
+            text = "设置",
+            fontSize = 24.sp,
+            lineHeight = 29.sp,
+            fontWeight = FontWeight.Bold,
+            color = ProtoTextPrimary,
+            modifier = Modifier.padding(horizontal = 2.dp)
+        )
+        Text(
+            text = "暗黑界面 · 核心参数与备份",
+            fontSize = 13.sp,
+            color = ProtoTextMuted,
+            modifier = Modifier.padding(start = 2.dp, bottom = 6.dp)
+        )
+
+        // 1. 核心连接与协议开关（对齐原型 .setting-row 排版）
+        LiquidGlassCard(modifier = Modifier.fillMaxWidth(), cornerRadius = 24.dp) {
+            Column(modifier = Modifier.fillMaxWidth()) {
+                SettingToggleRow(
+                    title = "断线后自动重连",
+                    subtitle = "网络波动恢复时自动重新建立加密通道",
+                    checked = settings.autoReconnect,
+                    onCheckedChange = { v -> onUpdateSettings { it.copy(autoReconnect = v) } }
+                )
+                SettingRowDivider()
+                SettingToggleRow(
+                    title = "局域网共享代理",
+                    subtitle = "监听 0.0.0.0:${settings.socksPort}/${settings.httpPort}，允许同 Wi-Fi 设备共享连接",
+                    checked = settings.allowLanShare,
+                    onCheckedChange = { v -> onUpdateSettings { it.copy(allowLanShare = v) } }
+                )
+                SettingRowDivider()
+                SettingToggleRow(
+                    title = "仅本地代理模式（不开 VPN）",
+                    subtitle = "仅开启本地 SOCKS5/HTTP 端口，适合配合其他系统代理使用",
+                    checked = settings.proxyOnlyMode,
+                    onCheckedChange = { v -> onUpdateSettings { it.copy(proxyOnlyMode = v) } }
+                )
+                SettingRowDivider()
+                SettingToggleRow(
+                    title = "启用 IPv6 路由",
+                    subtitle = "若当地网络和节点均支持 IPv6 可开启",
+                    checked = settings.enableIpv6,
+                    onCheckedChange = { v -> onUpdateSettings { it.copy(enableIpv6 = v) } }
+                )
+                SettingRowDivider()
+                SettingToggleRow(
+                    title = "FakeDNS 加速",
+                    subtitle = "减少 DNS 查询延迟，提升网页首包速度",
+                    checked = settings.enableFakeDns,
+                    onCheckedChange = { v -> onUpdateSettings { it.copy(enableFakeDns = v) } }
+                )
+                SettingRowDivider()
+                SettingToggleRow(
+                    title = "Mux 多路复用",
+                    subtitle = "合并并发 TCP 连接（不适用于 XTLS Vision 与 XHTTP）",
+                    checked = settings.enableMux,
+                    onCheckedChange = { v -> onUpdateSettings { it.copy(enableMux = v) } }
+                )
+                SettingRowDivider()
+                SettingToggleRow(
+                    title = "TLS Fragment 分片防阻断",
+                    subtitle = "将 TLS 握手分片发送以降低特定网络干扰",
+                    checked = settings.enableFragment,
+                    onCheckedChange = { v -> onUpdateSettings { it.copy(enableFragment = v) } }
+                )
+            }
         }
-    ) { padding ->
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(padding)
-                .verticalScroll(rememberScrollState())
-                .padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp)
-        ) {
-            // 1. 外观与日夜间模式（置顶方便调节）
-            LiquidGlassCard(modifier = Modifier.fillMaxWidth()) {
-                Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                    Text("日间 / 夜间模式与液态外观", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        ThemeMode.entries.forEach { mode ->
-                            FilterChip(
-                                selected = settings.themeMode == mode,
-                                onClick = { onUpdateSettings { it.copy(themeMode = mode) } },
-                                label = { Text(mode.title) }
-                            )
-                        }
-                    }
-                }
-            }
 
-            // 2. 核心网络开关
-            LiquidGlassCard(modifier = Modifier.fillMaxWidth()) {
-                Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                    Text("网络与协议增强", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
+        // 2. DNS 与本地端口
+        LiquidGlassCard(modifier = Modifier.fillMaxWidth(), cornerRadius = 24.dp) {
+            Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                Text("DNS 与本地端口", fontSize = 15.sp, fontWeight = FontWeight.Bold, color = ProtoTextPrimary)
 
-                    SettingToggleRow(
-                        title = "局域网共享代理",
-                        subtitle = "监听 0.0.0.0:${settings.socksPort}/${settings.httpPort}，允许同 Wi-Fi 设备共享连接",
-                        checked = settings.allowLanShare,
-                        onCheckedChange = { v -> onUpdateSettings { it.copy(allowLanShare = v) } }
-                    )
-                    SettingToggleRow(
-                        title = "仅本地代理模式（不开 VPN）",
-                        subtitle = "仅开启本地 SOCKS5/HTTP 端口，适合配合其他系统代理使用",
-                        checked = settings.proxyOnlyMode,
-                        onCheckedChange = { v -> onUpdateSettings { it.copy(proxyOnlyMode = v) } }
-                    )
-                    SettingToggleRow(
-                        title = "启用 IPv6 路由",
-                        subtitle = "若当地网络和节点均支持 IPv6 可开启",
-                        checked = settings.enableIpv6,
-                        onCheckedChange = { v -> onUpdateSettings { it.copy(enableIpv6 = v) } }
-                    )
-                    SettingToggleRow(
-                        title = "FakeDNS 加速",
-                        subtitle = "减少 DNS 查询延迟，提升网页首包速度",
-                        checked = settings.enableFakeDns,
-                        onCheckedChange = { v -> onUpdateSettings { it.copy(enableFakeDns = v) } }
-                    )
-                    SettingToggleRow(
-                        title = "Mux 多路复用",
-                        subtitle = "合并并发 TCP 连接（不适用于 XTLS Vision 与 XHTTP）",
-                        checked = settings.enableMux,
-                        onCheckedChange = { v -> onUpdateSettings { it.copy(enableMux = v) } }
-                    )
-                    SettingToggleRow(
-                        title = "TLS Fragment 分片防阻断",
-                        subtitle = "将 TLS 握手分片发送以降低特定网络干扰",
-                        checked = settings.enableFragment,
-                        onCheckedChange = { v -> onUpdateSettings { it.copy(enableFragment = v) } }
-                    )
-                }
-            }
-
-            // 3. DNS 与端口参数
-            LiquidGlassCard(modifier = Modifier.fillMaxWidth()) {
-                Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                    Text("DNS 与本地端口", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
-
+                OutlinedTextField(
+                    value = remoteDns,
+                    onValueChange = { remoteDns = it },
+                    label = { Text("境外代理 DNS (例如 1.1.1.1 或 8.8.8.8)") },
+                    singleLine = true,
+                    colors = prototypeTextFieldColors(),
+                    modifier = Modifier.fillMaxWidth()
+                )
+                OutlinedTextField(
+                    value = directDns,
+                    onValueChange = { directDns = it },
+                    label = { Text("国内直连 DNS (例如 223.5.5.5)") },
+                    singleLine = true,
+                    colors = prototypeTextFieldColors(),
+                    modifier = Modifier.fillMaxWidth()
+                )
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     OutlinedTextField(
-                        value = remoteDns,
-                        onValueChange = { remoteDns = it },
-                        label = { Text("境外代理 DNS (例如 1.1.1.1 或 8.8.8.8)") },
+                        value = socksPortStr,
+                        onValueChange = { socksPortStr = it.filter { c -> c.isDigit() } },
+                        label = { Text("SOCKS5") },
                         singleLine = true,
-                        modifier = Modifier.fillMaxWidth()
+                        colors = prototypeTextFieldColors(),
+                        modifier = Modifier.weight(1f)
                     )
                     OutlinedTextField(
-                        value = directDns,
-                        onValueChange = { directDns = it },
-                        label = { Text("国内直连 DNS (例如 223.5.5.5)") },
+                        value = httpPortStr,
+                        onValueChange = { httpPortStr = it.filter { c -> c.isDigit() } },
+                        label = { Text("HTTP") },
                         singleLine = true,
-                        modifier = Modifier.fillMaxWidth()
+                        colors = prototypeTextFieldColors(),
+                        modifier = Modifier.weight(1f)
                     )
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        OutlinedTextField(
-                            value = socksPortStr,
-                            onValueChange = { socksPortStr = it.filter { c -> c.isDigit() } },
-                            label = { Text("SOCKS5 端口") },
-                            singleLine = true,
-                            modifier = Modifier.weight(1f)
-                        )
-                        OutlinedTextField(
-                            value = httpPortStr,
-                            onValueChange = { httpPortStr = it.filter { c -> c.isDigit() } },
-                            label = { Text("HTTP 端口") },
-                            singleLine = true,
-                            modifier = Modifier.weight(1f)
-                        )
-                        OutlinedTextField(
-                            value = mtuStr,
-                            onValueChange = { mtuStr = it.filter { c -> c.isDigit() } },
-                            label = { Text("MTU") },
-                            singleLine = true,
-                            modifier = Modifier.weight(1f)
-                        )
-                    }
                     OutlinedTextField(
-                        value = speedUrl,
-                        onValueChange = { speedUrl = it },
-                        label = { Text("真连接测速目标 URL") },
+                        value = mtuStr,
+                        onValueChange = { mtuStr = it.filter { c -> c.isDigit() } },
+                        label = { Text("MTU") },
                         singleLine = true,
-                        modifier = Modifier.fillMaxWidth()
+                        colors = prototypeTextFieldColors(),
+                        modifier = Modifier.weight(1f)
                     )
-                    Button(
-                        onClick = {
-                            onUpdateSettings {
-                                it.copy(
-                                    remoteDns = remoteDns.trim().ifBlank { "1.1.1.1" },
-                                    directDns = directDns.trim().ifBlank { "223.5.5.5" },
-                                    socksPort = socksPortStr.toIntOrNull()?.takeIn(1024, 65535) ?: 10808,
-                                    httpPort = httpPortStr.toIntOrNull()?.takeIn(1024, 65535) ?: 10809,
-                                    vpnMtu = mtuStr.toIntOrNull()?.takeIn(1200, 9000) ?: 1500,
-                                    speedTestUrl = speedUrl.trim().ifBlank { "https://www.gstatic.com/generate_204" }
-                                )
-                            }
-                        },
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        Text("保存网络参数")
-                    }
+                }
+                OutlinedTextField(
+                    value = speedUrl,
+                    onValueChange = { speedUrl = it },
+                    label = { Text("真连接测速目标 URL") },
+                    singleLine = true,
+                    colors = prototypeTextFieldColors(),
+                    modifier = Modifier.fillMaxWidth()
+                )
+                Button(
+                    colors = prototypePrimaryButtonColors(),
+                    shape = RoundedCornerShape(14.dp),
+                    onClick = {
+                        onUpdateSettings {
+                            it.copy(
+                                remoteDns = remoteDns.trim().ifBlank { "1.1.1.1" },
+                                directDns = directDns.trim().ifBlank { "223.5.5.5" },
+                                socksPort = socksPortStr.toIntOrNull()?.takeIn(1024, 65535) ?: 10808,
+                                httpPort = httpPortStr.toIntOrNull()?.takeIn(1024, 65535) ?: 10809,
+                                vpnMtu = mtuStr.toIntOrNull()?.takeIn(1200, 9000) ?: 1500,
+                                speedTestUrl = speedUrl.trim().ifBlank { "https://www.gstatic.com/generate_204" }
+                            )
+                        }
+                        onShowMessage("已保存网络参数")
+                    },
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text("保存网络参数")
                 }
             }
+        }
 
-            // 4. 配置备份与迁移
-            LiquidGlassCard(modifier = Modifier.fillMaxWidth()) {
-                Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                    Text("配置备份与迁移", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        OutlinedButton(
-                            onClick = {
-                                scope.launch {
-                                    val json = onExportBackup()
-                                    onCopyText(json, "已导出全部节点与设置备份 JSON 到剪贴板")
-                                }
-                            },
-                            modifier = Modifier.weight(1f)
-                        ) {
-                            Text("导出备份")
+        // 3. 备份与工具操作行（对齐原型 .utility-button）
+        LiquidGlassCard(modifier = Modifier.fillMaxWidth(), cornerRadius = 24.dp) {
+            Column(modifier = Modifier.fillMaxWidth()) {
+                UtilityActionRow(
+                    title = "导出全部节点与配置备份",
+                    onClick = {
+                        scope.launch {
+                            val json = onExportBackup()
+                            onCopyText(json, "已导出全部节点与设置备份 JSON 到剪贴板")
                         }
-                        OutlinedButton(
-                            onClick = { showImportBackupDialog = true },
-                            modifier = Modifier.weight(1f)
-                        ) {
-                            Text("恢复备份")
-                        }
+                    }
+                )
+                SettingRowDivider()
+                UtilityActionRow(
+                    title = "从备份 JSON 恢复配置",
+                    onClick = { showImportBackupDialog = true }
+                )
+            }
+        }
+
+        // 4. 关于与检查更新
+        LiquidGlassCard(modifier = Modifier.fillMaxWidth(), cornerRadius = 24.dp) {
+            Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    BlackBrandLogo(size = 44.dp)
+                    Spacer(modifier = Modifier.width(12.dp))
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text("关于软件 I", fontSize = 15.sp, fontWeight = FontWeight.Bold, color = ProtoTextPrimary)
+                        Text(
+                            text = "版本: v${BuildConfig.VERSION_NAME} (${BuildConfig.VERSION_CODE})",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = ProtoTextPrimary
+                        )
+                        Text(
+                            text = "核心引擎: $xrayVersion + hev-socks5-tunnel",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = ProtoTextMuted
+                        )
                     }
                 }
-            }
 
-            // 5. 关于与自动检查更新
-            LiquidGlassCard(modifier = Modifier.fillMaxWidth()) {
-                Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        BlackBrandLogo(size = 44.dp)
-                        Spacer(modifier = Modifier.width(12.dp))
-                        Column(modifier = Modifier.weight(1f)) {
-                            Text("关于软件 I", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
-                            Text(
-                                text = "版本: v${BuildConfig.VERSION_NAME} (${BuildConfig.VERSION_CODE})",
-                                style = MaterialTheme.typography.bodySmall
-                            )
-                            Text(
-                                text = "核心引擎: $xrayVersion + hev-socks5-tunnel",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                        }
+                OutlinedButton(
+                    onClick = onCheckUpdate,
+                    enabled = !isCheckingUpdate,
+                    shape = RoundedCornerShape(14.dp),
+                    border = BorderStroke(1.dp, Color(0x8865ACF7)),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    if (isCheckingUpdate) {
+                        CircularProgressIndicator(
+                            strokeWidth = 2.dp,
+                            color = Color(0xFF53CAFF),
+                            modifier = Modifier.size(16.dp)
+                        )
+                    } else {
+                        Icon(
+                            Icons.Rounded.SystemUpdate,
+                            contentDescription = null,
+                            tint = Color(0xFFB6E9FF),
+                            modifier = Modifier.size(18.dp)
+                        )
                     }
-
-                    OutlinedButton(
-                        onClick = onCheckUpdate,
-                        enabled = !isCheckingUpdate,
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        if (isCheckingUpdate) {
-                            CircularProgressIndicator(
-                                strokeWidth = 2.dp,
-                                modifier = Modifier.size(16.dp)
-                            )
-                        } else {
-                            Icon(Icons.Rounded.SystemUpdate, contentDescription = null, modifier = Modifier.size(18.dp))
-                        }
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Text(if (isCheckingUpdate) "正在检查版本更新..." else "检查软件更新")
-                    }
-
+                    Spacer(modifier = Modifier.width(8.dp))
                     Text(
-                        text = "小技巧：可在手机顶部系统下拉快捷开关栏编辑按钮，将「I」磁贴拖到常用位置，无需打开 App 即可一键开关代理。",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                        text = if (isCheckingUpdate) "正在检查版本更新..." else "检查软件更新",
+                        color = ProtoTextPrimary
                     )
                 }
+
+                Text(
+                    text = "提示：可在手机顶部系统下拉快捷开关栏编辑按钮，将「I」磁贴拖到常用位置，一键开关代理。",
+                    fontSize = 11.sp,
+                    lineHeight = 17.sp,
+                    color = ProtoTextSubtle
+                )
             }
         }
+
+        Spacer(modifier = Modifier.navigationBarsPadding())
+        Spacer(modifier = Modifier.height(112.dp))
     }
 
     if (showImportBackupDialog) {
         var jsonInput by remember { mutableStateOf("") }
         AlertDialog(
+            containerColor = Color(0xFF0E192A),
+            titleContentColor = ProtoTextPrimary,
+            textContentColor = ProtoTextPrimary,
             onDismissRequest = { showImportBackupDialog = false },
             title = { Text("恢复备份 JSON") },
             text = {
@@ -304,11 +334,13 @@ fun SettingsScreen(
                     label = { Text("粘贴之前导出的备份 JSON") },
                     minLines = 5,
                     maxLines = 10,
+                    colors = prototypeTextFieldColors(),
                     modifier = Modifier.fillMaxWidth()
                 )
             },
             confirmButton = {
                 Button(
+                    colors = prototypePrimaryButtonColors(),
                     enabled = jsonInput.trim().startsWith("{"),
                     onClick = {
                         onImportBackup(jsonInput.trim())
@@ -319,7 +351,9 @@ fun SettingsScreen(
                 }
             },
             dismissButton = {
-                TextButton(onClick = { showImportBackupDialog = false }) { Text("取消") }
+                TextButton(onClick = { showImportBackupDialog = false }) {
+                    Text("取消", color = ProtoTextMuted)
+                }
             }
         )
     }
@@ -335,20 +369,49 @@ private fun SettingToggleRow(
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .clickable { onCheckedChange(!checked) },
+            .heightIn(min = 65.dp)
+            .clickable { onCheckedChange(!checked) }
+            .padding(horizontal = 15.dp, vertical = 13.dp),
+        horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically
     ) {
         Column(modifier = Modifier.weight(1f)) {
-            Text(title, fontWeight = FontWeight.Medium)
-            Text(
-                subtitle,
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
+            Text(title, fontSize = 14.sp, fontWeight = FontWeight.SemiBold, color = ProtoTextPrimary)
+            Spacer(modifier = Modifier.height(4.dp))
+            Text(subtitle, fontSize = 11.sp, color = Color(0xFF92A7BF))
         }
-        Spacer(modifier = Modifier.width(8.dp))
-        Switch(checked = checked, onCheckedChange = onCheckedChange)
+        Spacer(modifier = Modifier.width(12.dp))
+        PrototypeSwitch(checked = checked, onCheckedChange = onCheckedChange)
     }
+}
+
+@Composable
+private fun UtilityActionRow(
+    title: String,
+    onClick: () -> Unit
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .heightIn(min = 50.dp)
+            .clickable(onClick = onClick)
+            .padding(horizontal = 15.dp),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Text(title, fontSize = 14.sp, color = ProtoTextPrimary)
+        Text("›", fontSize = 20.sp, color = Color(0xFF7E9AB8))
+    }
+}
+
+@Composable
+private fun SettingRowDivider() {
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(1.dp)
+            .background(Color(0x305D88B9))
+    )
 }
 
 private fun Int.takeIn(min: Int, max: Int): Int? = if (this in min..max) this else null

@@ -3,13 +3,13 @@ package com.iproxy.app.ui.components
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.snap
 import androidx.compose.animation.core.tween
-import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -26,57 +26,69 @@ import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.BrightnessAuto
-import androidx.compose.material.icons.rounded.DarkMode
-import androidx.compose.material.icons.rounded.Dns
-import androidx.compose.material.icons.rounded.LightMode
-import androidx.compose.material.icons.rounded.PowerSettingsNew
-import androidx.compose.material.icons.rounded.Route
-import androidx.compose.material.icons.rounded.Settings
-import androidx.compose.material3.Icon
-import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ButtonColors
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.LocalContentColor
+import androidx.compose.material3.OutlinedTextFieldColors
+import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.ripple
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.StrokeJoin
+import androidx.compose.ui.graphics.drawscope.DrawScope
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.role
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.iproxy.app.R
+import com.iproxy.app.data.model.RoutingMode
 import com.iproxy.app.data.model.ThemeMode
 import com.iproxy.app.data.model.VpnStatus
-import com.iproxy.app.ui.theme.BrandBlue
-import com.iproxy.app.ui.theme.ConnectedGreen
-import com.iproxy.app.ui.theme.CyanAccent
-import com.iproxy.app.ui.theme.ErrorRed
 import com.iproxy.app.ui.theme.IProxyTheme
 import com.iproxy.app.ui.theme.LocalLiquidPalette
-import com.iproxy.app.ui.theme.WarningAmber
+import kotlin.math.PI
+import kotlin.math.cos
+import kotlin.math.sin
+
+internal val ProtoTextPrimary = Color(0xFFEFF7FF)
+internal val ProtoTextSecondary = Color(0xFFAEBFD2)
+internal val ProtoTextMuted = Color(0xFF9FB2C9)
+internal val ProtoTextSubtle = Color(0xFF7890AA)
+internal val ProtoDividerBlue = Color(0x5C5B93D8)
+internal val ProtoAccentSky = Color(0xFF59BAFF)
 
 /**
- * 动态液态光影背景层：随连接状态与日/夜间模式实时流动过渡
+ * 深海军蓝动态光影底景（连接/断开均保持一致的低调深蓝光泽，避免纯黑死板或突兀变绿）
  */
+@Suppress("UNUSED_PARAMETER")
 @Composable
 fun LiquidBackdrop(
     status: VpnStatus,
@@ -85,12 +97,11 @@ fun LiquidBackdrop(
 ) {
     val palette = LocalLiquidPalette.current
     val transition = rememberInfiniteTransition(label = "liquid_backdrop")
-
     val driftA by transition.animateFloat(
         initialValue = 0f,
         targetValue = 1f,
         animationSpec = infiniteRepeatable(
-            animation = tween(durationMillis = 9000, easing = FastOutSlowInEasing),
+            animation = tween(durationMillis = 12000, easing = FastOutSlowInEasing),
             repeatMode = RepeatMode.Reverse
         ),
         label = "driftA"
@@ -99,97 +110,88 @@ fun LiquidBackdrop(
         initialValue = 0f,
         targetValue = 1f,
         animationSpec = infiniteRepeatable(
-            animation = tween(durationMillis = 12500, easing = FastOutSlowInEasing),
+            animation = tween(durationMillis = 15000, easing = FastOutSlowInEasing),
             repeatMode = RepeatMode.Reverse
         ),
         label = "driftB"
     )
 
-    val targetOrbPrimary = when (status) {
-        VpnStatus.CONNECTED -> ConnectedGreen
-        VpnStatus.CONNECTING -> WarningAmber
-        VpnStatus.ERROR -> ErrorRed
-        else -> palette.ambientOrbPrimary
-    }
-    val targetOrbSecondary = when (status) {
-        VpnStatus.CONNECTED -> CyanAccent
-        VpnStatus.CONNECTING -> BrandBlue
-        VpnStatus.ERROR -> Color(0xFF6366F1)
-        else -> palette.ambientOrbSecondary
-    }
-
-    val orbPrimary by animateColorAsState(
-        targetValue = targetOrbPrimary,
-        animationSpec = tween(700),
-        label = "orbPrimary"
-    )
-    val orbSecondary by animateColorAsState(
-        targetValue = targetOrbSecondary,
-        animationSpec = tween(700),
-        label = "orbSecondary"
-    )
-
     Box(modifier = modifier.fillMaxSize()) {
         Canvas(modifier = Modifier.fillMaxSize()) {
-            drawRect(brush = Brush.verticalGradient(palette.backdropColors))
+            // 基准纵向渐变 #050912 -> #08111f (58%) -> #050a14
+            drawRect(
+                brush = Brush.verticalGradient(
+                    0.0f to palette.backdropColors[0],
+                    0.58f to palette.backdropColors[1],
+                    1.0f to palette.backdropColors[2]
+                )
+            )
 
-            val primaryAlpha = if (palette.isDark) 0.24f else 0.28f
-            val secondaryAlpha = if (palette.isDark) 0.20f else 0.22f
-            val tertiaryAlpha = if (palette.isDark) 0.14f else 0.16f
+            // 居中反应舱弱蓝辉光 + 右下深海蓝光晕
+            val midGlowCenter = Offset(size.width * 0.50f, size.height * 0.33f)
+            drawCircle(
+                brush = Brush.radialGradient(
+                    colors = listOf(Color(0x290C478F), Color.Transparent),
+                    center = midGlowCenter,
+                    radius = size.minDimension * 0.65f
+                ),
+                radius = size.minDimension * 0.65f,
+                center = midGlowCenter
+            )
 
-            val c1 = Offset(
-                x = size.width * (0.18f + 0.18f * driftA),
-                y = size.height * (0.12f + 0.10f * driftB)
+            val bottomGlowCenter = Offset(size.width * 0.96f, size.height * 0.92f)
+            drawCircle(
+                brush = Brush.radialGradient(
+                    colors = listOf(Color(0x2E0C3677), Color.Transparent),
+                    center = bottomGlowCenter,
+                    radius = size.minDimension * 0.72f
+                ),
+                radius = size.minDimension * 0.72f,
+                center = bottomGlowCenter
+            )
+
+            // 左右边缘柔和环境深蓝光球（对应 .app::before / .app::after）
+            val leftOrb = Offset(
+                x = -size.width * 0.08f + size.width * 0.04f * driftA,
+                y = size.height * (0.24f + 0.03f * driftB)
             )
             drawCircle(
                 brush = Brush.radialGradient(
-                    colors = listOf(orbPrimary.copy(alpha = primaryAlpha), Color.Transparent),
-                    center = c1,
-                    radius = size.minDimension * 0.78f
+                    colors = listOf(palette.ambientOrbPrimary.copy(alpha = 0.24f), Color.Transparent),
+                    center = leftOrb,
+                    radius = size.minDimension * 0.62f
                 ),
-                radius = size.minDimension * 0.78f,
-                center = c1
+                radius = size.minDimension * 0.62f,
+                center = leftOrb
             )
 
-            val c2 = Offset(
-                x = size.width * (0.86f - 0.22f * driftB),
-                y = size.height * (0.44f + 0.14f * driftA)
+            val rightOrb = Offset(
+                x = size.width * (1.06f - 0.04f * driftB),
+                y = size.height * (0.78f - 0.03f * driftA)
             )
             drawCircle(
                 brush = Brush.radialGradient(
-                    colors = listOf(orbSecondary.copy(alpha = secondaryAlpha), Color.Transparent),
-                    center = c2,
-                    radius = size.minDimension * 0.74f
+                    colors = listOf(palette.ambientOrbSecondary.copy(alpha = 0.24f), Color.Transparent),
+                    center = rightOrb,
+                    radius = size.minDimension * 0.60f
                 ),
-                radius = size.minDimension * 0.74f,
-                center = c2
-            )
-
-            val c3 = Offset(
-                x = size.width * (0.30f + 0.35f * driftB),
-                y = size.height * (0.86f - 0.10f * driftA)
-            )
-            drawCircle(
-                brush = Brush.radialGradient(
-                    colors = listOf(orbPrimary.copy(alpha = tertiaryAlpha), Color.Transparent),
-                    center = c3,
-                    radius = size.minDimension * 0.68f
-                ),
-                radius = size.minDimension * 0.68f,
-                center = c3
+                radius = size.minDimension * 0.60f,
+                center = rightOrb
             )
         }
-        content()
+        CompositionLocalProvider(LocalContentColor provides ProtoTextPrimary) {
+            content()
+        }
     }
 }
 
 /**
- * 液态磨砂玻璃卡片：半透明渐变填充 + 对角高光描边
+ * 深石板蓝黑立体玻璃卡片：3 段对角渐变 + 底部深蓝径向底晕 + 顶部冷光高光描边
  */
 @Composable
 fun LiquidGlassCard(
     modifier: Modifier = Modifier,
-    cornerRadius: Dp = 22.dp,
+    cornerRadius: Dp = 24.dp,
     elevated: Boolean = false,
     accentBorder: Color? = null,
     onClick: (() -> Unit)? = null,
@@ -199,16 +201,14 @@ fun LiquidGlassCard(
     val shape = RoundedCornerShape(cornerRadius)
 
     val fillBrush = Brush.linearGradient(
-        colors = if (elevated) {
-            listOf(palette.glassElevatedStart, palette.glassElevatedEnd)
-        } else {
-            listOf(palette.glassStart, palette.glassEnd)
-        }
+        0.0f to if (elevated) Color(0xFA223249) else palette.glassStart,
+        0.63f to palette.glassMid,
+        1.0f to palette.glassEnd
     )
 
     val borderBrush = if (accentBorder != null) {
         Brush.linearGradient(
-            colors = listOf(accentBorder.copy(alpha = 0.9f), accentBorder.copy(alpha = 0.45f))
+            colors = listOf(accentBorder.copy(alpha = 0.92f), accentBorder.copy(alpha = 0.52f))
         )
     } else {
         Brush.linearGradient(
@@ -226,21 +226,266 @@ fun LiquidGlassCard(
         modifier = modifier
             .clip(shape)
             .background(brush = fillBrush, shape = shape)
+            .drawBehind {
+                // 底部微弱幽蓝光晕（对应 .card::before）
+                val glowCenter = Offset(size.width * 0.5f, size.height * 1.05f)
+                drawCircle(
+                    brush = Brush.radialGradient(
+                        colors = listOf(Color(0x381171F0), Color.Transparent),
+                        center = glowCenter,
+                        radius = size.width * 0.68f
+                    ),
+                    radius = size.width * 0.68f,
+                    center = glowCenter
+                )
+                // 顶部细腻高光高线（对应 inset 0 1px 0 rgba(219, 238, 255, .14)）
+                drawLine(
+                    color = Color(0x24DBEEFF),
+                    start = Offset(cornerRadius.toPx() * 0.55f, 1.dp.toPx()),
+                    end = Offset(size.width - cornerRadius.toPx() * 0.55f, 1.dp.toPx()),
+                    strokeWidth = 1.dp.toPx()
+                )
+            }
             .border(
-                width = if (accentBorder != null) 1.5.dp else 1.dp,
+                width = if (accentBorder != null) 1.4.dp else 1.dp,
                 brush = borderBrush,
                 shape = shape
             )
-            .then(clickableModifier),
-        content = content
-    )
+            .then(clickableModifier)
+    ) {
+        CompositionLocalProvider(LocalContentColor provides ProtoTextPrimary) {
+            content()
+        }
+    }
 }
 
 /**
- * 悬浮液态胶囊底部导航栏
- *
- * 暗黑模式下呈深海军蓝玻璃质感、蓝色流动粒子与星链连线、柔和蓝色选中高光，
- * 并自动响应系统「移除动画 / 减弱动态效果」设置；浅色模式沿用通透液态玻璃效果。
+ * 原型 1:1 智能分流模式卡：选中按钮带与底栏完全一致的蓝色流动粒子与星链
+ */
+@Composable
+fun PrototypeRoutingModeCard(
+    routingMode: RoutingMode,
+    onSelectMode: (RoutingMode) -> Unit,
+    modifier: Modifier = Modifier,
+    title: String = "智能分流模式",
+    useCompactDescriptions: Boolean = true
+) {
+    val reduceMotion = rememberReduceMotionState()
+    val description = if (useCompactDescriptions) {
+        when (routingMode) {
+            RoutingMode.RULE_BYPASS_CN -> "大陆网络直连，其余流量通过代理转发"
+            RoutingMode.GLOBAL_PROXY -> "除局域网外所有网络流量均通过代理转发"
+            RoutingMode.DIRECT -> "所有网络流量均直接连接，不通过代理"
+        }
+    } else {
+        routingMode.subtitle
+    }
+
+    LiquidGlassCard(
+        modifier = modifier
+            .fillMaxWidth()
+            .heightIn(min = 145.dp),
+        cornerRadius = 24.dp
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(start = 13.dp, end = 13.dp, top = 14.dp, bottom = 13.dp)
+        ) {
+            Text(
+                text = title,
+                fontSize = 15.sp,
+                fontWeight = FontWeight.Bold,
+                letterSpacing = 0.3.sp,
+                color = ProtoTextPrimary,
+                modifier = Modifier.padding(start = 2.dp, bottom = 13.dp)
+            )
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                RoutingMode.entries.forEach { mode ->
+                    val label = when (mode) {
+                        RoutingMode.RULE_BYPASS_CN -> "绕过大陆"
+                        RoutingMode.GLOBAL_PROXY -> "全局代理"
+                        RoutingMode.DIRECT -> "直连"
+                    }
+                    PrototypeModeButton(
+                        label = label,
+                        selected = routingMode == mode,
+                        reduceMotion = reduceMotion,
+                        onClick = { onSelectMode(mode) },
+                        modifier = Modifier.weight(1f)
+                    )
+                }
+            }
+            Spacer(modifier = Modifier.height(10.dp))
+            Text(
+                text = description,
+                fontSize = 11.sp,
+                lineHeight = 16.sp,
+                color = Color(0xFFAABBD0),
+                modifier = Modifier
+                    .padding(horizontal = 2.dp)
+                    .heightIn(min = 17.dp)
+            )
+        }
+    }
+}
+
+@Composable
+private fun PrototypeModeButton(
+    label: String,
+    selected: Boolean,
+    reduceMotion: Boolean,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val shape = RoundedCornerShape(13.dp)
+    val bgBrush = if (selected) {
+        Brush.linearGradient(
+            colors = listOf(Color(0x9E1779E6), Color(0xC2074097))
+        )
+    } else {
+        Brush.linearGradient(
+            colors = listOf(Color(0xF02D3848), Color(0xFA17202E))
+        )
+    }
+    val borderColor = if (selected) Color(0xD179D1FF) else Color(0x667D91AD)
+    val textColor by animateColorAsState(
+        targetValue = if (selected) Color(0xFFFFFFFF) else Color(0xFFE2EAF4),
+        animationSpec = tween(180),
+        label = "modeBtnText"
+    )
+
+    Box(
+        modifier = modifier
+            .heightIn(min = 43.dp)
+            .clip(shape)
+            .background(brush = bgBrush, shape = shape)
+            .drawBehind {
+                if (selected) {
+                    drawCircle(
+                        brush = Brush.radialGradient(
+                            colors = listOf(Color(0x551F8EFF), Color.Transparent),
+                            center = center,
+                            radius = size.maxDimension * 0.72f
+                        ),
+                        radius = size.maxDimension * 0.72f,
+                        center = center
+                    )
+                    drawLine(
+                        color = Color(0x47E5F9FF),
+                        start = Offset(10.dp.toPx(), 1.dp.toPx()),
+                        end = Offset(size.width - 10.dp.toPx(), 1.dp.toPx()),
+                        strokeWidth = 1.dp.toPx()
+                    )
+                } else {
+                    drawLine(
+                        color = Color(0x1AE9F4FF),
+                        start = Offset(10.dp.toPx(), 1.dp.toPx()),
+                        end = Offset(size.width - 10.dp.toPx(), 1.dp.toPx()),
+                        strokeWidth = 1.dp.toPx()
+                    )
+                }
+            }
+            .border(width = 1.dp, color = borderColor, shape = shape)
+            .semantics { role = Role.Button }
+            .clickable(onClick = onClick),
+        contentAlignment = Alignment.Center
+    ) {
+        if (selected) {
+            BlueConstellationParticlesCanvas(
+                particleCount = 18,
+                reduceMotion = reduceMotion,
+                modifier = Modifier.matchParentSize(),
+                referenceWidthDp = 400f
+            )
+        }
+        Text(
+            text = label,
+            fontSize = 13.sp,
+            fontWeight = FontWeight.SemiBold,
+            color = textColor,
+            maxLines = 1,
+            modifier = Modifier.padding(horizontal = 8.dp, vertical = 10.dp)
+        )
+    }
+}
+
+/**
+ * 原型 1:1 胶囊切换开关（用于分流与设置开关）
+ */
+@Composable
+fun PrototypeSwitch(
+    checked: Boolean,
+    onCheckedChange: (Boolean) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val thumbOffset by animateDpAsState(
+        targetValue = if (checked) 19.dp else 0.dp,
+        animationSpec = tween(220, easing = FastOutSlowInEasing),
+        label = "switchThumb"
+    )
+    val borderColor by animateColorAsState(
+        targetValue = if (checked) Color(0xFF67C8FF) else Color(0x8A7E9DBB),
+        animationSpec = tween(220),
+        label = "switchBorder"
+    )
+    val trackBrush = if (checked) {
+        Brush.horizontalGradient(listOf(Color(0xFF1174DF), Color(0xFF18A0FF)))
+    } else {
+        Brush.horizontalGradient(listOf(Color(0xFF111B29), Color(0xFF111B29)))
+    }
+
+    Box(
+        modifier = modifier
+            .size(width = 46.dp, height = 27.dp)
+            .clip(CircleShape)
+            .background(brush = trackBrush, shape = CircleShape)
+            .border(width = 1.dp, color = borderColor, shape = CircleShape)
+            .clickable(role = Role.Switch) { onCheckedChange(!checked) }
+            .padding(3.dp),
+        contentAlignment = Alignment.CenterStart
+    ) {
+        Box(
+            modifier = Modifier
+                .offset(x = thumbOffset)
+                .size(19.dp)
+                .clip(CircleShape)
+                .background(if (checked) Color(0xFFF6FCFF) else Color(0xFFBECDE0))
+        )
+    }
+}
+
+/**
+ * 暗黑玻璃主按钮与输入框配色助手，避免任何浅色/紫色默认样式
+ */
+@Composable
+fun prototypePrimaryButtonColors(): ButtonColors = ButtonDefaults.buttonColors(
+    containerColor = Color(0xFF168BFF),
+    contentColor = Color(0xFFFFFFFF),
+    disabledContainerColor = Color(0xFF1B2B41),
+    disabledContentColor = Color(0xFF6B819B)
+)
+
+@Composable
+fun prototypeTextFieldColors(): OutlinedTextFieldColors = OutlinedTextFieldDefaults.colors(
+    focusedTextColor = ProtoTextPrimary,
+    unfocusedTextColor = ProtoTextPrimary,
+    cursorColor = Color(0xFF53CAFF),
+    focusedBorderColor = Color(0xFF53CAFF),
+    unfocusedBorderColor = Color(0x66709ACA),
+    focusedContainerColor = Color(0xAA08111F),
+    unfocusedContainerColor = Color(0x8808111F),
+    focusedLabelColor = Color(0xFF79D1FF),
+    unfocusedLabelColor = ProtoTextMuted,
+    focusedPlaceholderColor = ProtoTextSubtle,
+    unfocusedPlaceholderColor = ProtoTextSubtle
+)
+
+/**
+ * 悬浮胶囊底部导航栏：1:1 对标原型 74dp 胶囊、4 枚细描边图标、104 颗高速蓝色流动粒子与星链
  */
 @Composable
 fun LiquidBottomNavBar(
@@ -248,19 +493,18 @@ fun LiquidBottomNavBar(
     onSelectTab: (Int) -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val palette = LocalLiquidPalette.current
-    val dockShape = if (palette.isDark) CircleShape else RoundedCornerShape(28.dp)
+    val dockShape = CircleShape
     val items = listOf(
-        Triple(0, "连接", Icons.Rounded.PowerSettingsNew),
-        Triple(1, "节点", Icons.Rounded.Dns),
-        Triple(2, "分流", Icons.Rounded.Route),
-        Triple(3, "设置", Icons.Rounded.Settings)
+        0 to "连接",
+        1 to "节点",
+        2 to "分流",
+        3 to "设置"
     )
 
-    val reduceMotion = if (palette.isDark) rememberReduceMotionState() else false
+    val reduceMotion = rememberReduceMotionState()
     val animatedTabIndex by animateFloatAsState(
         targetValue = currentTab.coerceIn(0, items.lastIndex).toFloat(),
-        animationSpec = if (reduceMotion) snap() else tween(durationMillis = 280, easing = FastOutSlowInEasing),
+        animationSpec = if (reduceMotion) snap() else tween(durationMillis = 260, easing = FastOutSlowInEasing),
         label = "darkDockSelectedSlide"
     )
 
@@ -268,64 +512,40 @@ fun LiquidBottomNavBar(
         modifier = modifier
             .fillMaxWidth()
             .navigationBarsPadding()
-            .padding(horizontal = 14.dp, vertical = 10.dp),
+            .padding(start = 14.dp, end = 14.dp, bottom = 13.dp),
         contentAlignment = Alignment.Center
     ) {
-        val dockModifier = if (palette.isDark) {
-            Modifier
-                .widthIn(max = 520.dp)
-                .fillMaxWidth()
-                .clip(dockShape)
-        } else {
-            Modifier
-                .widthIn(max = 520.dp)
-                .fillMaxWidth()
-                .clip(dockShape)
-                .background(
-                    brush = Brush.linearGradient(listOf(palette.dockStart, palette.dockEnd)),
-                    shape = dockShape
-                )
-                .border(
-                    width = 1.dp,
-                    brush = Brush.linearGradient(listOf(palette.glassBorderTop, palette.glassBorderBottom)),
-                    shape = dockShape
-                )
-        }
-
         Surface(
-            modifier = dockModifier,
+            modifier = Modifier
+                .widthIn(max = 428.dp)
+                .fillMaxWidth()
+                .height(74.dp)
+                .clip(dockShape),
             shape = dockShape,
             color = Color.Transparent,
-            shadowElevation = if (palette.isDark) 14.dp else 8.dp
+            shadowElevation = 14.dp
         ) {
-            Box(modifier = Modifier.fillMaxWidth()) {
-                if (palette.isDark) {
-                    DarkParticleDockBackdrop(
-                        animatedSelectedIndex = animatedTabIndex,
-                        tabCount = items.size,
-                        reduceMotion = reduceMotion,
-                        modifier = Modifier.matchParentSize()
-                    )
-                }
+            Box(modifier = Modifier.fillMaxSize()) {
+                DarkParticleDockBackdrop(
+                    animatedSelectedIndex = animatedTabIndex,
+                    tabCount = items.size,
+                    reduceMotion = reduceMotion,
+                    modifier = Modifier.matchParentSize()
+                )
 
                 Row(
                     modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(
-                            horizontal = if (palette.isDark) 6.dp else 8.dp,
-                            vertical = if (palette.isDark) 5.dp else 6.dp
-                        ),
+                        .fillMaxSize()
+                        .padding(5.dp),
                     horizontalArrangement = Arrangement.SpaceEvenly,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    items.forEach { (index, label, icon) ->
+                    items.forEach { (index, label) ->
                         LiquidDockItem(
+                            tabIndex = index,
                             label = label,
-                            icon = icon,
                             selected = currentTab == index,
-                            isDarkDock = palette.isDark,
                             reduceMotion = reduceMotion,
-                            selectedPillColor = palette.dockSelectedPill,
                             onClick = { onSelectTab(index) },
                             modifier = Modifier.weight(1f)
                         )
@@ -338,35 +558,16 @@ fun LiquidBottomNavBar(
 
 @Composable
 private fun LiquidDockItem(
+    tabIndex: Int,
     label: String,
-    icon: ImageVector,
     selected: Boolean,
-    isDarkDock: Boolean,
     reduceMotion: Boolean,
-    selectedPillColor: Color,
     onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val itemShape = if (isDarkDock) CircleShape else RoundedCornerShape(20.dp)
-    val animMs = if (reduceMotion) 0 else 250
-
-    // 暗黑模式下选中态由底层滑动蓝色玻璃高光统一渲染，避免叠出额外白圈
-    val pillColor by animateColorAsState(
-        targetValue = when {
-            isDarkDock -> Color.Transparent
-            selected -> selectedPillColor
-            else -> Color.Transparent
-        },
-        animationSpec = tween(animMs),
-        label = "dockPill"
-    )
+    val animMs = if (reduceMotion) 0 else 220
     val contentColor by animateColorAsState(
-        targetValue = when {
-            isDarkDock && selected -> DarkNavPalette.IconSelected
-            isDarkDock -> DarkNavPalette.IconUnselected
-            selected -> MaterialTheme.colorScheme.primary
-            else -> MaterialTheme.colorScheme.onSurfaceVariant
-        },
+        targetValue = if (selected) DarkNavPalette.IconSelected else DarkNavPalette.IconUnselected,
         animationSpec = tween(animMs),
         label = "dockText"
     )
@@ -374,88 +575,149 @@ private fun LiquidDockItem(
 
     Column(
         modifier = modifier
-            .defaultMinSize(minHeight = 50.dp)
-            .clip(itemShape)
-            .background(pillColor)
+            .fillMaxSize()
+            .defaultMinSize(minHeight = 48.dp)
+            .clip(CircleShape)
             .clickable(
                 interactionSource = interactionSource,
                 indication = ripple(
                     bounded = true,
-                    color = if (isDarkDock) DarkNavPalette.RippleBlue else Color.Unspecified
+                    color = DarkNavPalette.RippleBlue
                 ),
                 onClick = onClick
             )
-            .padding(vertical = 7.dp, horizontal = 4.dp),
+            .padding(top = 5.dp, bottom = 4.dp, start = 2.dp, end = 2.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center
     ) {
-        Icon(
-            imageVector = icon,
-            contentDescription = label,
+        NavStrokeIcon(
+            tabIndex = tabIndex,
             tint = contentColor,
-            modifier = Modifier.size(20.dp)
+            modifier = Modifier.size(23.dp)
         )
-        Spacer(modifier = Modifier.height(2.dp))
+        Spacer(modifier = Modifier.height(4.dp))
         Text(
             text = label,
             fontSize = 11.sp,
-            fontWeight = if (selected) FontWeight.Bold else FontWeight.Medium,
+            fontWeight = FontWeight.SemiBold,
             color = contentColor,
             maxLines = 1
         )
     }
 }
 
-/**
- * 顶部快速切换「日间 / 夜间 / 跟随系统」液态胶囊按钮
- */
 @Composable
-fun LiquidThemeToggleButton(
-    themeMode: ThemeMode,
-    onClick: () -> Unit,
+private fun NavStrokeIcon(
+    tabIndex: Int,
+    tint: Color,
     modifier: Modifier = Modifier
 ) {
-    val palette = LocalLiquidPalette.current
-    val (icon, label) = when (themeMode) {
-        ThemeMode.LIGHT -> Icons.Rounded.LightMode to "日间"
-        ThemeMode.DARK -> Icons.Rounded.DarkMode to "夜间"
-        ThemeMode.SYSTEM -> Icons.Rounded.BrightnessAuto to "自动"
-    }
+    Canvas(modifier = modifier) {
+        val sx = size.width / 28f
+        val sy = size.height / 28f
+        val strokePx = 2.25f * ((sx + sy) * 0.5f)
+        val stroke = Stroke(width = strokePx, cap = StrokeCap.Round, join = StrokeJoin.Round)
 
-    Surface(
-        modifier = modifier
-            .clip(CircleShape)
-            .clickable(onClick = onClick),
-        shape = CircleShape,
-        color = if (palette.isDark) Color(0x88151E30) else Color(0xCCFFFFFF),
-        border = BorderStroke(
-            1.dp,
-            Brush.linearGradient(listOf(palette.glassBorderTop, palette.glassBorderBottom))
-        )
-    ) {
-        Row(
-            modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Icon(
-                imageVector = icon,
-                contentDescription = "切换日夜间模式",
-                tint = MaterialTheme.colorScheme.primary,
-                modifier = Modifier.size(15.dp)
-            )
-            Spacer(modifier = Modifier.width(4.dp))
-            Text(
-                text = label,
-                style = MaterialTheme.typography.labelMedium,
-                fontWeight = FontWeight.Medium,
-                color = MaterialTheme.colorScheme.onSurface
-            )
+        when (tabIndex) {
+            0 -> drawPowerGlyph(tint, sx, sy, stroke)
+            1 -> drawServerNodesGlyph(tint, sx, sy, stroke)
+            2 -> drawSplitRouteGlyph(tint, sx, sy, stroke)
+            else -> drawGearGlyph(tint, sx, sy, stroke)
         }
     }
 }
 
+private fun DrawScope.drawPowerGlyph(tint: Color, sx: Float, sy: Float, stroke: Stroke) {
+    drawLine(
+        color = tint,
+        start = Offset(14f * sx, 3f * sy),
+        end = Offset(14f * sx, 13f * sy),
+        strokeWidth = stroke.width,
+        cap = StrokeCap.Round
+    )
+    drawArc(
+        color = tint,
+        startAngle = -55f,
+        sweepAngle = 290f,
+        useCenter = false,
+        topLeft = Offset(3.6f * sx, 4.6f * sy),
+        size = androidx.compose.ui.geometry.Size(20.8f * sx, 20.8f * sy),
+        style = stroke
+    )
+}
+
+private fun DrawScope.drawServerNodesGlyph(tint: Color, sx: Float, sy: Float, stroke: Stroke) {
+    drawRoundRect(
+        color = tint,
+        topLeft = Offset(4f * sx, 4f * sy),
+        size = androidx.compose.ui.geometry.Size(20f * sx, 8f * sy),
+        cornerRadius = androidx.compose.ui.geometry.CornerRadius(2.2f * sx, 2.2f * sy),
+        style = stroke
+    )
+    drawCircle(color = tint, radius = 1.25f * sx, center = Offset(9f * sx, 8f * sy))
+    drawRoundRect(
+        color = tint,
+        topLeft = Offset(4f * sx, 16f * sy),
+        size = androidx.compose.ui.geometry.Size(20f * sx, 8f * sy),
+        cornerRadius = androidx.compose.ui.geometry.CornerRadius(2.2f * sx, 2.2f * sy),
+        style = stroke
+    )
+    drawCircle(color = tint, radius = 1.25f * sx, center = Offset(9f * sx, 20f * sy))
+}
+
+private fun DrawScope.drawSplitRouteGlyph(tint: Color, sx: Float, sy: Float, stroke: Stroke) {
+    val leftPath = Path().apply {
+        moveTo(7f * sx, 6f * sy)
+        lineTo(7f * sx, 10.5f * sy)
+        cubicTo(7f * sx, 13.5f * sy, 9.5f * sx, 15f * sy, 12.2f * sx, 15f * sy)
+        lineTo(13.2f * sx, 15f * sy)
+        cubicTo(15.6f * sx, 15f * sy, 17f * sx, 16.8f * sy, 17f * sx, 19.5f * sy)
+        lineTo(17f * sx, 22f * sy)
+    }
+    drawPath(path = leftPath, color = tint, style = stroke)
+
+    val rightPath = Path().apply {
+        moveTo(21f * sx, 6f * sy)
+        lineTo(21f * sx, 9f * sy)
+        cubicTo(21f * sx, 11.8f * sy, 19.3f * sx, 13.5f * sy, 16.5f * sx, 13.5f * sy)
+        lineTo(14.5f * sx, 15f * sy)
+    }
+    drawPath(path = rightPath, color = tint, style = stroke)
+
+    drawCircle(color = tint, radius = 2.1f * sx, center = Offset(7f * sx, 4.2f * sy), style = stroke)
+    drawCircle(color = tint, radius = 2.1f * sx, center = Offset(21f * sx, 4.2f * sy), style = stroke)
+    drawCircle(color = tint, radius = 2.1f * sx, center = Offset(17f * sx, 23.8f * sy), style = stroke)
+}
+
+private fun DrawScope.drawGearGlyph(tint: Color, sx: Float, sy: Float, stroke: Stroke) {
+    val cx = 14f * sx
+    val cy = 14f * sy
+    val outerR = 10.6f * sx
+    val innerR = 7.7f * sx
+    val teeth = 6
+    val gearPath = Path()
+    for (i in 0 until teeth) {
+        val baseDeg = i * (360f / teeth) - 90f
+        val a0 = (baseDeg - 13f) * (PI / 180.0)
+        val a1 = (baseDeg - 7f) * (PI / 180.0)
+        val a2 = (baseDeg + 7f) * (PI / 180.0)
+        val a3 = (baseDeg + 13f) * (PI / 180.0)
+        val p0 = Offset(cx + (innerR * cos(a0)).toFloat(), cy + (innerR * sin(a0)).toFloat())
+        val p1 = Offset(cx + (outerR * cos(a1)).toFloat(), cy + (outerR * sin(a1)).toFloat())
+        val p2 = Offset(cx + (outerR * cos(a2)).toFloat(), cy + (outerR * sin(a2)).toFloat())
+        val p3 = Offset(cx + (innerR * cos(a3)).toFloat(), cy + (innerR * sin(a3)).toFloat())
+        if (i == 0) gearPath.moveTo(p0.x, p0.y) else gearPath.lineTo(p0.x, p0.y)
+        gearPath.lineTo(p1.x, p1.y)
+        gearPath.lineTo(p2.x, p2.y)
+        gearPath.lineTo(p3.x, p3.y)
+    }
+    gearPath.close()
+    drawPath(path = gearPath, color = tint, style = stroke)
+    drawCircle(color = tint, radius = 3.2f * sx, center = Offset(cx, cy), style = stroke)
+}
+
 /**
- * 黑曜石流纹光球「I」品牌 Logo（用于启动页、首页抬头、设置与更新弹窗）
+ * 黑曜石流纹光球「I」品牌 Logo（用于启动页、关于弹窗与更新弹窗）
  */
 @Composable
 fun BlackBrandLogo(
@@ -466,9 +728,9 @@ fun BlackBrandLogo(
     val shape = RoundedCornerShape(size * 0.26f)
     val borderBrush = Brush.linearGradient(
         colors = if (accentGlow != null) {
-            listOf(accentGlow.copy(alpha = 0.88f), Color(0x55FFFFFF))
+            listOf(accentGlow.copy(alpha = 0.88f), Color(0x55709ACA))
         } else {
-            listOf(Color(0x55E2E8F0), Color(0x2064748B))
+            listOf(Color(0x6679D1FF), Color(0x2E4679B5))
         }
     )
 
@@ -487,14 +749,14 @@ fun BlackBrandLogo(
     }
 }
 
-@Preview(showBackground = true, backgroundColor = 0xFF040812, widthDp = 412)
+@Preview(showBackground = true, backgroundColor = 0xFF050A14, widthDp = 412)
 @Composable
 private fun LiquidBottomNavBarDarkPreview() {
     IProxyTheme(themeMode = ThemeMode.DARK) {
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .background(Color(0xFF040812))
+                .background(Color(0xFF050A14))
                 .padding(vertical = 16.dp)
         ) {
             LiquidBottomNavBar(
