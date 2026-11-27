@@ -8,7 +8,6 @@ import androidx.lifecycle.viewModelScope
 import com.iproxy.app.core.update.AppUpdateInfo
 import com.iproxy.app.core.update.AppUpdateManager
 import com.iproxy.app.core.update.InstallLaunchResult
-import com.iproxy.app.core.update.InstallLaunchResult
 import com.iproxy.app.core.util.CoreLogBuffer
 import com.iproxy.app.data.model.AppSettings
 import com.iproxy.app.data.model.LogEntry
