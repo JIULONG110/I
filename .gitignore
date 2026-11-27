@@ -22,6 +22,7 @@ captures/
 /signing/
 keystore.properties
 !gradle/wrapper/gradle-wrapper.jar
+!app/signing/iproxy.p12
 
 # 构建时自动下载的大体积内核与 Geo 规则库（见 gradle downloadCoreAssets 任务）
 app/libs/*.aar

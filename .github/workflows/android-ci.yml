@@ -67,36 +67,31 @@ jobs:
           KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
           KEY_PASS: ${{ secrets.ANDROID_KEY_PASSWORD }}
         run: |
-          IS_TAG=false
-          if [[ "${{ github.ref }}" == refs/tags/v* ]]; then
-            IS_TAG=true
+          if [ -n "$KEYSTORE_B64" ] && [ -n "$KEYSTORE_PASS" ] && [ -n "$KEY_ALIAS" ] && [ -n "$KEY_PASS" ]; then
+            KEYSTORE_FILE="${{ runner.temp }}/iproxy-signing.p12"
+            printf '%s' "$KEYSTORE_B64" | tr -d '\r\n ' | base64 -d > "$KEYSTORE_FILE"
+            KEY_ALIAS_TRIMMED=$(printf '%s' "$KEY_ALIAS" | tr -d '\r\n')
+            KEYSTORE_PASS_TRIMMED=$(printf '%s' "$KEYSTORE_PASS" | tr -d '\r\n')
+            KEY_PASS_TRIMMED=$(printf '%s' "$KEY_PASS" | tr -d '\r\n')
+
+            keytool -list -keystore "$KEYSTORE_FILE" -storepass "$KEYSTORE_PASS_TRIMMED" -alias "$KEY_ALIAS_TRIMMED" >/dev/null
+            echo "Using Secrets keystore for alias: $KEY_ALIAS_TRIMMED"
+
+            {
+              echo "ANDROID_KEYSTORE_PATH=$KEYSTORE_FILE"
+              echo "ANDROID_KEYSTORE_PASSWORD=$KEYSTORE_PASS_TRIMMED"
+              echo "ANDROID_KEY_ALIAS=$KEY_ALIAS_TRIMMED"
+              echo "ANDROID_KEY_PASSWORD=$KEY_PASS_TRIMMED"
+            } >> "$GITHUB_ENV"
+            exit 0
           fi
 
-          if [ -z "$KEYSTORE_B64" ] || [ -z "$KEYSTORE_PASS" ] || [ -z "$KEY_ALIAS" ] || [ -z "$KEY_PASS" ]; then
-            if [ "$IS_TAG" = true ]; then
-              echo "::error::发布标签构建必须配置 GitHub Secrets (ANDROID_KEYSTORE_BASE64, ANDROID_KEYSTORE_PASSWORD, ANDROID_KEY_ALIAS, ANDROID_KEY_PASSWORD)，否则会导致包签名不一致并引发「未安装应用」错误！"
-              exit 1
-            else
-              echo "::warning::未检测到 ANDROID_KEYSTORE_* Secrets，本次分支构建将使用临时调试签名。"
-              exit 0
-            fi
+          if [ ! -f app/signing/iproxy.p12 ]; then
+            echo "::error::未找到仓库持久化签名文件 app/signing/iproxy.p12 且未配置 Secrets！"
+            exit 1
           fi
-
-          KEYSTORE_FILE="${{ runner.temp }}/iproxy-signing.p12"
-          printf '%s' "$KEYSTORE_B64" | tr -d '\r\n ' | base64 -d > "$KEYSTORE_FILE"
-          KEY_ALIAS_TRIMMED=$(printf '%s' "$KEY_ALIAS" | tr -d '\r\n')
-          KEYSTORE_PASS_TRIMMED=$(printf '%s' "$KEYSTORE_PASS" | tr -d '\r\n')
-          KEY_PASS_TRIMMED=$(printf '%s' "$KEY_PASS" | tr -d '\r\n')
-
-          keytool -list -keystore "$KEYSTORE_FILE" -storepass "$KEYSTORE_PASS_TRIMMED" -alias "$KEY_ALIAS_TRIMMED" >/dev/null
-          echo "Keystore verified for alias: $KEY_ALIAS_TRIMMED"
-
-          {
-            echo "ANDROID_KEYSTORE_PATH=$KEYSTORE_FILE"
-            echo "ANDROID_KEYSTORE_PASSWORD=$KEYSTORE_PASS_TRIMMED"
-            echo "ANDROID_KEY_ALIAS=$KEY_ALIAS_TRIMMED"
-            echo "ANDROID_KEY_PASSWORD=$KEY_PASS_TRIMMED"
-          } >> "$GITHUB_ENV"
+          keytool -list -keystore app/signing/iproxy.p12 -storepass "iproxy2026release" -alias "iproxy" >/dev/null
+          echo "Using unified repository keystore: app/signing/iproxy.p12"
 
       - name: 下载核心组件并运行单元测试
         run: |

@@ -34,22 +34,35 @@ android {
             keystorePropsFile.inputStream().use { load(it) }
         }
     }
+    val repoDefaultKeystore = project.file("signing/iproxy.p12")
     val signingStorePath = System.getenv("ANDROID_KEYSTORE_PATH")
         ?: keystoreProps.getProperty("storeFile")
-    val signingStorePassword = System.getenv("ANDROID_KEYSTORE_PASSWORD")
-        ?: keystoreProps.getProperty("storePassword")
-    val signingKeyAlias = System.getenv("ANDROID_KEY_ALIAS")
-        ?: keystoreProps.getProperty("keyAlias")
-    val signingKeyPassword = System.getenv("ANDROID_KEY_PASSWORD")
-        ?: keystoreProps.getProperty("keyPassword")
-    val signingStoreFile = signingStorePath?.let { path ->
+    val envStoreFile = signingStorePath?.let { path ->
         val f = file(path)
         if (f.isFile) f else rootProject.file(path).takeIf { it.isFile }
     }
-    val hasPersistentSigning = signingStoreFile != null &&
-        !signingStorePassword.isNullOrBlank() &&
-        !signingKeyAlias.isNullOrBlank() &&
-        !signingKeyPassword.isNullOrBlank()
+    val useExternalSigning = envStoreFile != null &&
+        !(System.getenv("ANDROID_KEYSTORE_PASSWORD") ?: keystoreProps.getProperty("storePassword")).isNullOrBlank() &&
+        !(System.getenv("ANDROID_KEY_ALIAS") ?: keystoreProps.getProperty("keyAlias")).isNullOrBlank() &&
+        !(System.getenv("ANDROID_KEY_PASSWORD") ?: keystoreProps.getProperty("keyPassword")).isNullOrBlank()
+
+    val signingStoreFile = if (useExternalSigning) envStoreFile else repoDefaultKeystore.takeIf { it.isFile }
+    val signingStorePassword = if (useExternalSigning) {
+        System.getenv("ANDROID_KEYSTORE_PASSWORD") ?: keystoreProps.getProperty("storePassword")
+    } else {
+        "iproxy2026release"
+    }
+    val signingKeyAlias = if (useExternalSigning) {
+        System.getenv("ANDROID_KEY_ALIAS") ?: keystoreProps.getProperty("keyAlias")
+    } else {
+        "iproxy"
+    }
+    val signingKeyPassword = if (useExternalSigning) {
+        System.getenv("ANDROID_KEY_PASSWORD") ?: keystoreProps.getProperty("keyPassword")
+    } else {
+        "iproxy2026release"
+    }
+    val hasPersistentSigning = signingStoreFile != null
 
     signingConfigs {
         if (hasPersistentSigning) {
