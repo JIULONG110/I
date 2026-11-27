@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <style name="Base.Theme.IProxy" parent="Theme.AppCompat.NoActionBar">
+    <style name="Base.V26.Theme.IProxy" parent="Theme.AppCompat.NoActionBar">
         <item name="android:windowBackground">@color/brand_deep_navy</item>
         <item name="android:colorBackground">@color/brand_deep_navy</item>
         <item name="android:colorPrimary">@color/brand_cyan</item>
@@ -10,8 +10,9 @@
         <item name="android:statusBarColor">@android:color/transparent</item>
         <item name="android:navigationBarColor">@android:color/transparent</item>
         <item name="android:windowLightStatusBar">false</item>
-        <item name="android:windowLightNavigationBar">false</item>
     </style>
+
+    <style name="Base.Theme.IProxy" parent="Base.V26.Theme.IProxy" />
 
     <style name="Theme.IProxy" parent="Base.Theme.IProxy" />
 </resources>
