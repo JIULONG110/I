@@ -9,16 +9,18 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.SystemUpdate
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
@@ -27,6 +29,7 @@ import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -35,22 +38,27 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.iproxy.app.BuildConfig
 import com.iproxy.app.data.model.AppSettings
 import com.iproxy.app.data.model.ThemeMode
+import com.iproxy.app.ui.components.BlackBrandLogo
+import com.iproxy.app.ui.components.LiquidGlassCard
 import kotlinx.coroutines.launch
 import libv2ray.Libv2ray
 
 /**
- * 高级网络设置、备份与关于页面
+ * 高级网络设置、外观主题、版本检查与配置备份页面
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SettingsScreen(
     settings: AppSettings,
+    isCheckingUpdate: Boolean,
     onUpdateSettings: ((AppSettings) -> AppSettings) -> Unit,
+    onCheckUpdate: () -> Unit,
     onExportBackup: suspend () -> String,
     onImportBackup: (String) -> Unit,
     onCopyText: (String, String) -> Unit
@@ -66,8 +74,12 @@ fun SettingsScreen(
     val xrayVersion = remember { runCatching { Libv2ray.checkVersionX() }.getOrDefault("Xray-core") }
 
     Scaffold(
+        containerColor = Color.Transparent,
         topBar = {
-            TopAppBar(title = { Text("设置") })
+            TopAppBar(
+                title = { Text("设置") },
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.Transparent)
+            )
         }
     ) { padding ->
         Column(
@@ -78,11 +90,24 @@ fun SettingsScreen(
                 .padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            // 1. 核心网络开关
-            Card(
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                shape = RoundedCornerShape(16.dp)
-            ) {
+            // 1. 外观与日夜间模式（置顶方便调节）
+            LiquidGlassCard(modifier = Modifier.fillMaxWidth()) {
+                Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Text("日间 / 夜间模式与液态外观", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        ThemeMode.entries.forEach { mode ->
+                            FilterChip(
+                                selected = settings.themeMode == mode,
+                                onClick = { onUpdateSettings { it.copy(themeMode = mode) } },
+                                label = { Text(mode.title) }
+                            )
+                        }
+                    }
+                }
+            }
+
+            // 2. 核心网络开关
+            LiquidGlassCard(modifier = Modifier.fillMaxWidth()) {
                 Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                     Text("网络与协议增强", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
 
@@ -125,11 +150,8 @@ fun SettingsScreen(
                 }
             }
 
-            // 2. DNS 与端口参数
-            Card(
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                shape = RoundedCornerShape(16.dp)
-            ) {
+            // 3. DNS 与端口参数
+            LiquidGlassCard(modifier = Modifier.fillMaxWidth()) {
                 Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                     Text("DNS 与本地端口", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
 
@@ -197,24 +219,9 @@ fun SettingsScreen(
                 }
             }
 
-            // 3. 外观主题与配置备份
-            Card(
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                shape = RoundedCornerShape(16.dp)
-            ) {
+            // 4. 配置备份与迁移
+            LiquidGlassCard(modifier = Modifier.fillMaxWidth()) {
                 Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                    Text("外观主题", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        ThemeMode.entries.forEach { mode ->
-                            FilterChip(
-                                selected = settings.themeMode == mode,
-                                onClick = { onUpdateSettings { it.copy(themeMode = mode) } },
-                                label = { Text(mode.title) }
-                            )
-                        }
-                    }
-
-                    Spacer(modifier = Modifier.height(4.dp))
                     Text("配置备份与迁移", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         OutlinedButton(
@@ -238,22 +245,43 @@ fun SettingsScreen(
                 }
             }
 
-            // 4. 关于与下拉磁贴指引
-            Card(
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                shape = RoundedCornerShape(16.dp)
-            ) {
-                Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                    Text("关于软件 I", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
-                    Text(
-                        text = "版本: v${BuildConfig.VERSION_NAME} (${BuildConfig.VERSION_CODE})",
-                        style = MaterialTheme.typography.bodySmall
-                    )
-                    Text(
-                        text = "核心引擎: $xrayVersion + hev-socks5-tunnel",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
+            // 5. 关于与自动检查更新
+            LiquidGlassCard(modifier = Modifier.fillMaxWidth()) {
+                Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        BlackBrandLogo(size = 44.dp)
+                        Spacer(modifier = Modifier.width(12.dp))
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text("关于软件 I", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
+                            Text(
+                                text = "版本: v${BuildConfig.VERSION_NAME} (${BuildConfig.VERSION_CODE})",
+                                style = MaterialTheme.typography.bodySmall
+                            )
+                            Text(
+                                text = "核心引擎: $xrayVersion + hev-socks5-tunnel",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    }
+
+                    OutlinedButton(
+                        onClick = onCheckUpdate,
+                        enabled = !isCheckingUpdate,
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        if (isCheckingUpdate) {
+                            CircularProgressIndicator(
+                                strokeWidth = 2.dp,
+                                modifier = Modifier.size(16.dp)
+                            )
+                        } else {
+                            Icon(Icons.Rounded.SystemUpdate, contentDescription = null, modifier = Modifier.size(18.dp))
+                        }
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(if (isCheckingUpdate) "正在检查版本更新..." else "检查软件更新")
+                    }
+
                     Text(
                         text = "小技巧：可在手机顶部系统下拉快捷开关栏编辑按钮，将「I」磁贴拖到常用位置，无需打开 App 即可一键开关代理。",
                         style = MaterialTheme.typography.bodySmall,

@@ -9,6 +9,7 @@ import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -34,10 +35,7 @@ import androidx.compose.material.icons.rounded.ContentPasteGo
 import androidx.compose.material.icons.rounded.QrCodeScanner
 import androidx.compose.material.icons.rounded.Security
 import androidx.compose.material.icons.rounded.Speed
-import androidx.compose.material3.AssistChip
 import androidx.compose.material3.Button
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
@@ -57,6 +55,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -67,15 +66,19 @@ import com.iproxy.app.data.model.RoutingMode
 import com.iproxy.app.data.model.ServerNode
 import com.iproxy.app.data.model.VpnRuntimeState
 import com.iproxy.app.data.model.VpnStatus
+import com.iproxy.app.ui.components.BlackBrandLogo
+import com.iproxy.app.ui.components.LiquidGlassCard
+import com.iproxy.app.ui.components.LiquidThemeToggleButton
 import com.iproxy.app.ui.theme.BrandBlue
 import com.iproxy.app.ui.theme.ConnectedGreen
 import com.iproxy.app.ui.theme.CyanAccent
 import com.iproxy.app.ui.theme.ErrorRed
+import com.iproxy.app.ui.theme.LocalLiquidPalette
 import com.iproxy.app.ui.theme.WarningAmber
 import kotlinx.coroutines.delay
 
 /**
- * 首页连接仪表盘：大号 "I" 按钮、实时速率、节点摘要、分流切换与新手引导
+ * 首页连接仪表盘：液态黑曜石核心按钮、实时速率、节点摘要、分流与日夜间模式快捷切换
  */
 @Composable
 fun HomeScreen(
@@ -85,6 +88,7 @@ fun HomeScreen(
     settings: AppSettings,
     isTestingLatency: Boolean,
     onToggleConnect: () -> Unit,
+    onCycleThemeMode: () -> Unit,
     onSelectNodeClick: () -> Unit,
     onTestCurrentNode: (String) -> Unit,
     onChangeRoutingMode: (RoutingMode) -> Unit,
@@ -92,6 +96,7 @@ fun HomeScreen(
     onOpenQrScan: () -> Unit,
     onOpenAddSub: () -> Unit
 ) {
+    val palette = LocalLiquidPalette.current
     val isConnected = runtimeState.status == VpnStatus.CONNECTED
     val isConnecting = runtimeState.status == VpnStatus.CONNECTING
 
@@ -111,12 +116,21 @@ fun HomeScreen(
     val pulseTransition = rememberInfiniteTransition(label = "pulse")
     val pulseScale by pulseTransition.animateFloat(
         initialValue = 1.0f,
-        targetValue = if (isConnected) 1.08f else 1.0f,
+        targetValue = if (isConnected) 1.09f else 1.03f,
         animationSpec = infiniteRepeatable(
-            animation = tween(1500, easing = FastOutSlowInEasing),
+            animation = tween(if (isConnected) 1500 else 2600, easing = FastOutSlowInEasing),
             repeatMode = RepeatMode.Reverse
         ),
         label = "pulseScale"
+    )
+    val outerWaveScale by pulseTransition.animateFloat(
+        initialValue = 0.98f,
+        targetValue = if (isConnected) 1.16f else 1.06f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(if (isConnected) 2200 else 3400, easing = FastOutSlowInEasing),
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = "outerWaveScale"
     )
 
     val ringColor by animateColorAsState(
@@ -124,7 +138,7 @@ fun HomeScreen(
             VpnStatus.CONNECTED -> ConnectedGreen
             VpnStatus.CONNECTING -> WarningAmber
             VpnStatus.ERROR -> ErrorRed
-            else -> MaterialTheme.colorScheme.primary
+            else -> if (palette.isDark) CyanAccent else MaterialTheme.colorScheme.primary
         },
         label = "ringColor"
     )
@@ -133,91 +147,161 @@ fun HomeScreen(
         modifier = Modifier
             .fillMaxSize()
             .verticalScroll(rememberScrollState())
-            .padding(horizontal = 20.dp, vertical = 16.dp),
+            .padding(horizontal = 20.dp, vertical = 14.dp),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        // 顶部品牌抬头
+        // 顶部品牌抬头 + 日夜间一键切换 + 状态胶囊
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Column {
-                Text(
-                    text = "I",
-                    fontSize = 28.sp,
-                    fontWeight = FontWeight.ExtraBold,
-                    color = MaterialTheme.colorScheme.primary
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                BlackBrandLogo(
+                    size = 42.dp,
+                    accentGlow = if (isConnected) ConnectedGreen else null
                 )
-                Text(
-                    text = if (settings.proxyOnlyMode) "本地代理模式" else "安全加密 VPN 通道",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            }
-            AssistChip(
-                onClick = {},
-                label = {
+                Spacer(modifier = Modifier.width(10.dp))
+                Column {
                     Text(
-                        text = when (runtimeState.status) {
-                            VpnStatus.CONNECTED -> "已连接 ${FormatUtils.formatDuration(elapsedMs)}"
-                            VpnStatus.CONNECTING -> "连接中..."
-                            VpnStatus.ERROR -> "连接异常"
-                            else -> "未连接"
-                        }
+                        text = "I",
+                        fontSize = 24.sp,
+                        fontWeight = FontWeight.ExtraBold,
+                        color = MaterialTheme.colorScheme.onBackground
                     )
-                },
-                leadingIcon = {
-                    Icon(
-                        imageVector = Icons.Rounded.Security,
-                        contentDescription = null,
-                        tint = ringColor,
-                        modifier = Modifier.size(16.dp)
+                    Text(
+                        text = if (settings.proxyOnlyMode) "本地代理模式" else "安全加密通道",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
-            )
+            }
+
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                LiquidThemeToggleButton(
+                    themeMode = settings.themeMode,
+                    onClick = onCycleThemeMode
+                )
+
+                Surface(
+                    shape = CircleShape,
+                    color = if (palette.isDark) Color(0x88151E30) else Color(0xCCFFFFFF),
+                    border = BorderStroke(
+                        1.dp,
+                        Brush.linearGradient(listOf(palette.glassBorderTop, palette.glassBorderBottom))
+                    )
+                ) {
+                    Row(
+                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(
+                            imageVector = Icons.Rounded.Security,
+                            contentDescription = null,
+                            tint = ringColor,
+                            modifier = Modifier.size(15.dp)
+                        )
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text(
+                            text = when (runtimeState.status) {
+                                VpnStatus.CONNECTED -> FormatUtils.formatDuration(elapsedMs)
+                                VpnStatus.CONNECTING -> "连接中"
+                                VpnStatus.ERROR -> "异常"
+                                else -> "未连接"
+                            },
+                            style = MaterialTheme.typography.labelMedium,
+                            fontWeight = FontWeight.SemiBold,
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
+                    }
+                }
+            }
         }
 
-        Spacer(modifier = Modifier.height(24.dp))
+        Spacer(modifier = Modifier.height(22.dp))
 
-        // 超大号「I」核心连接按钮
+        // 超大号液态黑曜石「I」核心连接球
         Box(
             contentAlignment = Alignment.Center,
-            modifier = Modifier.size(210.dp)
+            modifier = Modifier.size(220.dp)
         ) {
-            // 外圈呼吸光环
+            // 外层液态波动光环
             Box(
                 modifier = Modifier
-                    .size(196.dp)
+                    .size(204.dp)
+                    .scale(outerWaveScale)
+                    .clip(CircleShape)
+                    .background(
+                        Brush.radialGradient(
+                            colors = listOf(
+                                ringColor.copy(alpha = if (isConnected) 0.16f else 0.08f),
+                                Color.Transparent
+                            )
+                        )
+                    )
+            )
+
+            // 内层玻璃呼吸光圈
+            Box(
+                modifier = Modifier
+                    .size(182.dp)
                     .scale(pulseScale)
                     .clip(CircleShape)
-                    .background(ringColor.copy(alpha = if (isConnected) 0.16f else 0.08f))
+                    .background(ringColor.copy(alpha = if (isConnected) 0.18f else 0.09f))
+                    .border(
+                        width = 1.dp,
+                        brush = Brush.linearGradient(
+                            listOf(palette.glassBorderTop, ringColor.copy(alpha = 0.25f))
+                        ),
+                        shape = CircleShape
+                    )
             )
+
+            val orbGradient = when (runtimeState.status) {
+                VpnStatus.CONNECTED -> listOf(Color(0xFF052E24), Color(0xFF0A4F3C), ConnectedGreen.copy(alpha = 0.85f))
+                VpnStatus.CONNECTING -> listOf(Color(0xFF1F1808), Color(0xFF47330A))
+                VpnStatus.ERROR -> listOf(Color(0xFF280B10), Color(0xFF54141D))
+                else -> listOf(palette.obsidianCoreTop, palette.obsidianCoreBottom)
+            }
 
             Surface(
                 modifier = Modifier
-                    .size(160.dp)
+                    .size(156.dp)
                     .clip(CircleShape)
                     .clickable(enabled = !isConnecting) { onToggleConnect() },
                 shape = CircleShape,
                 color = Color.Transparent,
-                border = BorderStroke(3.dp, ringColor),
-                shadowElevation = if (isConnected) 12.dp else 4.dp
+                border = BorderStroke(
+                    width = 2.5.dp,
+                    brush = Brush.linearGradient(
+                        listOf(Color.White.copy(alpha = 0.65f), ringColor)
+                    )
+                ),
+                shadowElevation = if (isConnected) 16.dp else 10.dp
             ) {
                 Box(
                     contentAlignment = Alignment.Center,
                     modifier = Modifier
                         .fillMaxSize()
-                        .background(
-                            Brush.linearGradient(
-                                colors = if (isConnected) {
-                                    listOf(Color(0xFF065F46), ConnectedGreen)
-                                } else {
-                                    listOf(Color(0xFF0F294A), BrandBlue, CyanAccent.copy(alpha = 0.7f))
-                                }
-                            )
-                        )
+                        .background(Brush.linearGradient(colors = orbGradient))
                 ) {
+                    // 球体顶部液态玻璃高光反射
+                    Box(
+                        modifier = Modifier
+                            .align(Alignment.TopCenter)
+                            .padding(top = 12.dp)
+                            .size(width = 94.dp, height = 38.dp)
+                            .clip(CircleShape)
+                            .background(
+                                Brush.verticalGradient(
+                                    listOf(Color.White.copy(alpha = 0.24f), Color.Transparent)
+                                )
+                            )
+                    )
+
                     if (isConnecting) {
                         CircularProgressIndicator(
                             color = Color.White,
@@ -236,7 +320,7 @@ fun HomeScreen(
                                 text = if (isConnected) "点击断开" else "点击连接",
                                 fontSize = 13.sp,
                                 fontWeight = FontWeight.Medium,
-                                color = Color.White.copy(alpha = 0.9f)
+                                color = Color.White.copy(alpha = 0.88f)
                             )
                         }
                     }
@@ -246,20 +330,26 @@ fun HomeScreen(
 
         if (!runtimeState.lastError.isNullOrBlank()) {
             Spacer(modifier = Modifier.height(10.dp))
-            Text(
-                text = "错误: ${runtimeState.lastError}",
-                color = ErrorRed,
-                style = MaterialTheme.typography.bodySmall
-            )
+            LiquidGlassCard(
+                modifier = Modifier.fillMaxWidth(),
+                cornerRadius = 14.dp,
+                accentBorder = ErrorRed
+            ) {
+                Text(
+                    text = "错误: ${runtimeState.lastError}",
+                    color = ErrorRed,
+                    style = MaterialTheme.typography.bodySmall,
+                    modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp)
+                )
+            }
         }
 
-        Spacer(modifier = Modifier.height(20.dp))
+        Spacer(modifier = Modifier.height(18.dp))
 
-        // 实时上下行网速与总流量卡片
-        Card(
+        // 实时上下行网速与总流量液态卡片
+        LiquidGlassCard(
             modifier = Modifier.fillMaxWidth(),
-            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-            shape = RoundedCornerShape(18.dp)
+            elevated = true
         ) {
             Row(
                 modifier = Modifier
@@ -284,16 +374,13 @@ fun HomeScreen(
             }
         }
 
-        Spacer(modifier = Modifier.height(14.dp))
+        Spacer(modifier = Modifier.height(12.dp))
 
         // 当前节点卡片或零基础引导卡片
         if (selectedNode != null) {
-            Card(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clickable { onSelectNodeClick() },
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                shape = RoundedCornerShape(18.dp)
+            LiquidGlassCard(
+                modifier = Modifier.fillMaxWidth(),
+                onClick = onSelectNodeClick
             ) {
                 Row(
                     modifier = Modifier
@@ -319,7 +406,7 @@ fun HomeScreen(
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Surface(
                                 color = MaterialTheme.colorScheme.primaryContainer,
-                                shape = RoundedCornerShape(6.dp)
+                                shape = RoundedCornerShape(8.dp)
                             ) {
                                 Text(
                                     text = selectedNode.badgeText(),
@@ -353,12 +440,7 @@ fun HomeScreen(
                 }
             }
         } else {
-            // 零基础首次使用三步引导卡片
-            Card(
-                modifier = Modifier.fillMaxWidth(),
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                shape = RoundedCornerShape(18.dp)
-            ) {
+            LiquidGlassCard(modifier = Modifier.fillMaxWidth()) {
                 Column(modifier = Modifier.padding(18.dp)) {
                     Text(
                         text = "新手快速开始（3 秒上手）",
@@ -406,14 +488,10 @@ fun HomeScreen(
             }
         }
 
-        Spacer(modifier = Modifier.height(14.dp))
+        Spacer(modifier = Modifier.height(12.dp))
 
         // 路由模式快速切换
-        Card(
-            modifier = Modifier.fillMaxWidth(),
-            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-            shape = RoundedCornerShape(18.dp)
-        ) {
+        LiquidGlassCard(modifier = Modifier.fillMaxWidth()) {
             Column(modifier = Modifier.padding(16.dp)) {
                 Text(
                     text = "智能分流模式",
@@ -453,13 +531,13 @@ fun HomeScreen(
             }
         }
 
-        Spacer(modifier = Modifier.height(16.dp))
+        Spacer(modifier = Modifier.height(12.dp))
     }
 }
 
 @Composable
 private fun TrafficStatColumn(
-    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    icon: ImageVector,
     tint: Color,
     title: String,
     speed: String,

@@ -1,6 +1,5 @@
 package com.iproxy.app.ui.screens
 
-import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
@@ -22,6 +21,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.rounded.Sort
 import androidx.compose.material.icons.rounded.Add
 import androidx.compose.material.icons.rounded.AddLink
 import androidx.compose.material.icons.rounded.CheckCircle
@@ -34,12 +34,9 @@ import androidx.compose.material.icons.rounded.QrCode2
 import androidx.compose.material.icons.rounded.QrCodeScanner
 import androidx.compose.material.icons.rounded.Refresh
 import androidx.compose.material.icons.rounded.Search
-import androidx.compose.material.icons.automirrored.rounded.Sort
 import androidx.compose.material.icons.rounded.Speed
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
@@ -56,6 +53,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -63,6 +61,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -74,6 +73,7 @@ import com.iproxy.app.data.model.ServerNode
 import com.iproxy.app.data.model.Subscription
 import com.iproxy.app.data.model.TransportNetwork
 import com.iproxy.app.ui.QrCodeHelper
+import com.iproxy.app.ui.components.LiquidGlassCard
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -131,9 +131,11 @@ fun NodesScreen(
     }
 
     Scaffold(
+        containerColor = Color.Transparent,
         topBar = {
             TopAppBar(
                 title = { Text("节点与订阅 (${nodes.size})") },
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.Transparent),
                 actions = {
                     IconButton(onClick = onMeasureAll, enabled = !isTestingLatency) {
                         Icon(Icons.Rounded.Speed, contentDescription = "全部测速")
@@ -363,12 +365,12 @@ private fun SubscriptionInfoBanner(
     onRefresh: () -> Unit,
     onDelete: () -> Unit
 ) {
-    Card(
+    LiquidGlassCard(
         modifier = Modifier
             .fillMaxWidth()
             .padding(horizontal = 16.dp, vertical = 6.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
-        shape = RoundedCornerShape(14.dp)
+        cornerRadius = 18.dp,
+        elevated = true
     ) {
         Column(modifier = Modifier.padding(12.dp)) {
             Row(
@@ -423,13 +425,12 @@ private fun NodeItemCard(
     onShareQr: () -> Unit,
     onDelete: () -> Unit
 ) {
-    Card(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable { onSelect() },
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-        border = if (isSelected) BorderStroke(1.8.dp, MaterialTheme.colorScheme.primary) else null,
-        shape = RoundedCornerShape(16.dp)
+    LiquidGlassCard(
+        modifier = Modifier.fillMaxWidth(),
+        cornerRadius = 20.dp,
+        elevated = isSelected,
+        accentBorder = if (isSelected) MaterialTheme.colorScheme.primary else null,
+        onClick = onSelect
     ) {
         Row(
             modifier = Modifier

@@ -28,8 +28,6 @@ import androidx.compose.material.icons.rounded.ContentCopy
 import androidx.compose.material.icons.rounded.DeleteSweep
 import androidx.compose.material.icons.rounded.Search
 import androidx.compose.material3.Button
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -47,6 +45,7 @@ import androidx.compose.material3.Switch
 import androidx.compose.material3.Tab
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -66,6 +65,7 @@ import com.iproxy.app.data.model.LogEntry
 import com.iproxy.app.data.model.PerAppMode
 import com.iproxy.app.data.model.RoutingMode
 import com.iproxy.app.data.repository.InstalledAppInfo
+import com.iproxy.app.ui.components.LiquidGlassCard
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -89,8 +89,12 @@ fun RulesAndLogsScreen(
     var selectedTab by remember { mutableIntStateOf(0) }
 
     Scaffold(
+        containerColor = Color.Transparent,
         topBar = {
-            TopAppBar(title = { Text("分流与日志") })
+            TopAppBar(
+                title = { Text("分流与日志") },
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.Transparent)
+            )
         }
     ) { padding ->
         Column(
@@ -98,7 +102,10 @@ fun RulesAndLogsScreen(
                 .fillMaxSize()
                 .padding(padding)
         ) {
-            PrimaryTabRow(selectedTabIndex = selectedTab) {
+            PrimaryTabRow(
+                selectedTabIndex = selectedTab,
+                containerColor = Color.Transparent
+            ) {
                 Tab(
                     selected = selectedTab == 0,
                     onClick = { selectedTab = 0 },
@@ -156,10 +163,7 @@ private fun RulesConfigTab(
         }
 
         // 路由模式卡片
-        Card(
-            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-            shape = RoundedCornerShape(16.dp)
-        ) {
+        LiquidGlassCard(modifier = Modifier.fillMaxWidth()) {
             Column(modifier = Modifier.padding(16.dp)) {
                 Text("主路由模式", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
                 Spacer(modifier = Modifier.height(6.dp))
@@ -189,10 +193,7 @@ private fun RulesConfigTab(
         }
 
         // 广告拦截 & Geo 数据库更新
-        Card(
-            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-            shape = RoundedCornerShape(16.dp)
-        ) {
+        LiquidGlassCard(modifier = Modifier.fillMaxWidth()) {
             Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 Row(
                     modifier = Modifier.fillMaxWidth(),
@@ -229,10 +230,7 @@ private fun RulesConfigTab(
         }
 
         // 分应用代理卡片
-        Card(
-            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-            shape = RoundedCornerShape(16.dp)
-        ) {
+        LiquidGlassCard(modifier = Modifier.fillMaxWidth()) {
             Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Icon(Icons.Rounded.Apps, null, tint = MaterialTheme.colorScheme.primary)
@@ -272,10 +270,7 @@ private fun RulesConfigTab(
         }
 
         // 自定义域名/IP规则
-        Card(
-            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-            shape = RoundedCornerShape(16.dp)
-        ) {
+        LiquidGlassCard(modifier = Modifier.fillMaxWidth()) {
             Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 Text("自定义规则（每行一个域名或 IP/CIDR）", fontWeight = FontWeight.Bold)
                 OutlinedTextField(
@@ -429,9 +424,11 @@ fun PerAppSelectorScreen(
     }
 
     Scaffold(
+        containerColor = Color.Transparent,
         topBar = {
             TopAppBar(
                 title = { Text("选择分应用代理 (${selectedPackages.size})") },
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.Transparent),
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(Icons.AutoMirrored.Rounded.ArrowBack, contentDescription = "返回")

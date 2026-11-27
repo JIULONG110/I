@@ -5,12 +5,16 @@ import android.content.Context
 import android.net.VpnService
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import com.iproxy.app.core.update.AppUpdateInfo
+import com.iproxy.app.core.update.AppUpdateManager
+import com.iproxy.app.core.update.InstallLaunchResult
 import com.iproxy.app.core.util.CoreLogBuffer
 import com.iproxy.app.data.model.AppSettings
 import com.iproxy.app.data.model.LogEntry
 import com.iproxy.app.data.model.RoutingMode
 import com.iproxy.app.data.model.ServerNode
 import com.iproxy.app.data.model.Subscription
+import com.iproxy.app.data.model.ThemeMode
 import com.iproxy.app.data.model.VpnRuntimeState
 import com.iproxy.app.data.model.VpnStatus
 import com.iproxy.app.data.repository.AppRepository
@@ -27,6 +31,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import java.io.File
 
 /**
  * 全局共享 ViewModel，统一向各个页面暴露状态与操作方法
@@ -34,6 +39,7 @@ import kotlinx.coroutines.launch
 class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     private val repository = AppRepository(application)
+    private val updateManager = AppUpdateManager(application)
 
     val nodes: StateFlow<List<ServerNode>> = repository.nodesFlow
     val subscriptions: StateFlow<List<Subscription>> = repository.subscriptionsFlow
@@ -66,11 +72,139 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     private val _isLoadingApps = MutableStateFlow(false)
     val isLoadingApps: StateFlow<Boolean> = _isLoadingApps.asStateFlow()
 
+    private val _availableUpdate = MutableStateFlow<AppUpdateInfo?>(null)
+    val availableUpdate: StateFlow<AppUpdateInfo?> = _availableUpdate.asStateFlow()
+
+    private val _isCheckingUpdate = MutableStateFlow(false)
+    val isCheckingUpdate: StateFlow<Boolean> = _isCheckingUpdate.asStateFlow()
+
+    private val _isDownloadingUpdate = MutableStateFlow(false)
+    val isDownloadingUpdate: StateFlow<Boolean> = _isDownloadingUpdate.asStateFlow()
+
+    private val _updateDownloadProgress = MutableStateFlow<Float?>(null)
+    val updateDownloadProgress: StateFlow<Float?> = _updateDownloadProgress.asStateFlow()
+
+    private val _updateDownloadError = MutableStateFlow<String?>(null)
+    val updateDownloadError: StateFlow<String?> = _updateDownloadError.asStateFlow()
+
+    private val _pendingInstallApk = MutableStateFlow<File?>(null)
+    val pendingInstallApk: StateFlow<File?> = _pendingInstallApk.asStateFlow()
+
     private val _toastEvents = MutableSharedFlow<String>(extraBufferCapacity = 8)
     val toastEvents: SharedFlow<String> = _toastEvents.asSharedFlow()
 
     private val _requestVpnPermissionEvent = MutableSharedFlow<Unit>(extraBufferCapacity = 2)
     val requestVpnPermissionEvent: SharedFlow<Unit> = _requestVpnPermissionEvent.asSharedFlow()
+
+    private val _requestInstallPermissionEvent = MutableSharedFlow<Unit>(extraBufferCapacity = 2)
+    val requestInstallPermissionEvent: SharedFlow<Unit> = _requestInstallPermissionEvent.asSharedFlow()
+
+    private var initialCheckFailed = false
+    private var hasCompletedUpdateCheck = false
+
+    init {
+        checkForAppUpdate(silentIfLatest = true)
+        viewModelScope.launch {
+            runtimeState.collect { state ->
+                if (state.status == VpnStatus.CONNECTED && initialCheckFailed && !hasCompletedUpdateCheck) {
+                    checkForAppUpdate(silentIfLatest = true)
+                }
+            }
+        }
+    }
+
+    fun checkForAppUpdate(silentIfLatest: Boolean = false) {
+        if (_isCheckingUpdate.value) return
+        viewModelScope.launch {
+            _isCheckingUpdate.value = true
+            updateManager.checkForUpdate()
+                .onSuccess { info ->
+                    hasCompletedUpdateCheck = true
+                    initialCheckFailed = false
+                    if (info != null) {
+                        _updateDownloadError.value = null
+                        _updateDownloadProgress.value = null
+                        _pendingInstallApk.value = null
+                        _availableUpdate.value = info
+                    } else if (!silentIfLatest) {
+                        emitToast("当前已是最新版本")
+                    }
+                }
+                .onFailure { err ->
+                    initialCheckFailed = true
+                    if (!silentIfLatest) {
+                        emitToast("检查更新失败: ${err.message ?: "请检查网络"}")
+                    }
+                }
+            _isCheckingUpdate.value = false
+        }
+    }
+
+    fun dismissUpdateDialog() {
+        if (_isDownloadingUpdate.value) return
+        _availableUpdate.value = null
+        _updateDownloadProgress.value = null
+        _updateDownloadError.value = null
+        _pendingInstallApk.value = null
+    }
+
+    fun downloadAndInstallUpdate() {
+        val update = _availableUpdate.value ?: return
+        val asset = update.apkAsset ?: return
+        if (_isDownloadingUpdate.value) return
+
+        viewModelScope.launch {
+            _isDownloadingUpdate.value = true
+            _updateDownloadError.value = null
+            _updateDownloadProgress.value = null
+
+            updateManager.downloadApk(asset) { downloaded, total ->
+                _updateDownloadProgress.value = if (total > 0L) {
+                    (downloaded.toFloat() / total.toFloat()).coerceIn(0f, 1f)
+                } else {
+                    null
+                }
+            }.onSuccess { apkFile ->
+                _pendingInstallApk.value = apkFile
+                handleInstallLaunchResult(updateManager.launchApkInstaller(apkFile))
+            }.onFailure { err ->
+                _updateDownloadError.value = "下载失败: ${err.message ?: "网络异常"}"
+            }
+
+            _isDownloadingUpdate.value = false
+        }
+    }
+
+    fun retryInstallPendingApk() {
+        val apkFile = _pendingInstallApk.value ?: return
+        handleInstallLaunchResult(updateManager.launchApkInstaller(apkFile))
+    }
+
+    private fun handleInstallLaunchResult(result: InstallLaunchResult) {
+        when (result) {
+            InstallLaunchResult.Launched -> {
+                _updateDownloadError.value = null
+            }
+            InstallLaunchResult.NeedsInstallPermission -> {
+                emitToast("请先开启「允许来自此来源的应用」安装权限")
+                _requestInstallPermissionEvent.tryEmit(Unit)
+            }
+            is InstallLaunchResult.Failed -> {
+                _updateDownloadError.value = "启动安装失败: ${result.reason}"
+            }
+        }
+    }
+
+    fun cycleThemeMode() {
+        updateSettings { current ->
+            val next = when (current.themeMode) {
+                ThemeMode.SYSTEM -> ThemeMode.LIGHT
+                ThemeMode.LIGHT -> ThemeMode.DARK
+                ThemeMode.DARK -> ThemeMode.SYSTEM
+            }
+            current.copy(themeMode = next)
+        }
+    }
 
     fun selectNode(nodeId: String) {
         repository.selectNode(nodeId)
