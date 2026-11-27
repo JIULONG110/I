@@ -3,7 +3,6 @@ package com.iproxy.app.ui.screens
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
@@ -44,6 +43,7 @@ import androidx.compose.material.icons.rounded.Route
 import androidx.compose.material.icons.rounded.Search
 import androidx.compose.material.icons.rounded.Speed
 import androidx.compose.material.icons.rounded.Tune
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.DropdownMenu
@@ -62,6 +62,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -80,13 +81,7 @@ import com.iproxy.app.data.model.ProtocolType
 import com.iproxy.app.data.model.ServerNode
 import com.iproxy.app.data.model.Subscription
 import com.iproxy.app.ui.QrCodeHelper
-import com.iproxy.app.ui.components.IProxyAlertDialog
 import com.iproxy.app.ui.components.LiquidGlassCard
-import com.iproxy.app.ui.components.darkFilterChipBorder
-import com.iproxy.app.ui.components.darkFilterChipColors
-import com.iproxy.app.ui.components.darkOutlinedTextFieldColors
-import com.iproxy.app.ui.components.darkTopAppBarColors
-import com.iproxy.app.ui.theme.CyanAccent
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -177,11 +172,10 @@ fun NodesScreen(
 
     Scaffold(
         containerColor = Color.Transparent,
-        contentColor = MaterialTheme.colorScheme.onBackground,
         topBar = {
             TopAppBar(
                 title = { Text("节点与订阅 (${nodes.size})") },
-                colors = darkTopAppBarColors(),
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.Transparent),
                 actions = {
                     IconButton(onClick = onMeasureAll, enabled = !isTestingLatency) {
                         Icon(Icons.Rounded.Speed, contentDescription = "全部测速")
@@ -200,19 +194,12 @@ fun NodesScreen(
         },
         floatingActionButton = {
             Box {
-                FloatingActionButton(
-                    onClick = { showAddMenu = true },
-                    containerColor = MaterialTheme.colorScheme.primaryContainer,
-                    contentColor = CyanAccent
-                ) {
+                FloatingActionButton(onClick = { showAddMenu = true }) {
                     Icon(Icons.Rounded.Add, contentDescription = "添加节点或订阅")
                 }
                 DropdownMenu(
                     expanded = showAddMenu,
                     onDismissRequest = { showAddMenu = false },
-                    containerColor = MaterialTheme.colorScheme.surfaceContainer,
-                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline),
-                    shape = RoundedCornerShape(16.dp),
                     modifier = Modifier.heightIn(max = 480.dp)
                 ) {
                     DropdownMenuItem(
@@ -316,7 +303,6 @@ fun NodesScreen(
                 placeholder = { Text("搜索节点名称、地址或协议...") },
                 leadingIcon = { Icon(Icons.Rounded.Search, contentDescription = null) },
                 singleLine = true,
-                colors = darkOutlinedTextFieldColors(),
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(horizontal = 16.dp, vertical = 8.dp)
@@ -333,24 +319,17 @@ fun NodesScreen(
                 FilterChip(
                     selected = activeGroupFilter == "ALL",
                     onClick = { activeGroupFilter = "ALL" },
-                    colors = darkFilterChipColors(),
-                    border = darkFilterChipBorder(activeGroupFilter == "ALL"),
                     label = { Text("全部 (${nodes.size})") }
                 )
                 FilterChip(
                     selected = activeGroupFilter == "LOCAL",
                     onClick = { activeGroupFilter = "LOCAL" },
-                    colors = darkFilterChipColors(),
-                    border = darkFilterChipBorder(activeGroupFilter == "LOCAL"),
                     label = { Text("手动导入") }
                 )
                 subscriptions.forEach { sub ->
-                    val selected = activeGroupFilter == sub.id
                     FilterChip(
-                        selected = selected,
+                        selected = activeGroupFilter == sub.id,
                         onClick = { activeGroupFilter = sub.id },
-                        colors = darkFilterChipColors(),
-                        border = darkFilterChipBorder(selected),
                         label = { Text("${sub.name} (${sub.nodeCount})") }
                     )
                 }
@@ -477,31 +456,22 @@ fun NodesScreen(
     qrPreviewNode?.let { node ->
         val shareLink = remember(node) { onExportShareLink(node) }
         val qrBitmap = remember(shareLink) { QrCodeHelper.generateQrBitmap(shareLink) }
-        IProxyAlertDialog(
+        AlertDialog(
             onDismissRequest = { qrPreviewNode = null },
             title = { Text(node.name, maxLines = 1, overflow = TextOverflow.Ellipsis) },
             text = {
                 Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.fillMaxWidth()) {
                     if (qrBitmap != null) {
-                        Surface(
-                            color = Color(0xFFE6F4FE),
-                            shape = RoundedCornerShape(14.dp),
-                            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline)
-                        ) {
-                            Image(
-                                bitmap = qrBitmap.asImageBitmap(),
-                                contentDescription = "节点二维码",
-                                modifier = Modifier
-                                    .padding(8.dp)
-                                    .size(210.dp)
-                            )
-                        }
+                        Image(
+                            bitmap = qrBitmap.asImageBitmap(),
+                            contentDescription = "节点二维码",
+                            modifier = Modifier.size(220.dp)
+                        )
                     }
                     Spacer(modifier = Modifier.height(10.dp))
                     Text(
                         text = shareLink,
                         style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
                         maxLines = 4,
                         overflow = TextOverflow.Ellipsis
                     )
@@ -671,9 +641,8 @@ private fun AddSubscriptionDialog(
     var name by remember { mutableStateOf("") }
     var url by remember { mutableStateOf("") }
     var autoUpdate by remember { mutableStateOf(true) }
-    val fieldColors = darkOutlinedTextFieldColors()
 
-    IProxyAlertDialog(
+    AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text("添加订阅链接") },
         text = {
@@ -683,7 +652,6 @@ private fun AddSubscriptionDialog(
                     onValueChange = { name = it },
                     label = { Text("订阅备注（可选）") },
                     singleLine = true,
-                    colors = fieldColors,
                     modifier = Modifier.fillMaxWidth()
                 )
                 OutlinedTextField(
@@ -693,7 +661,6 @@ private fun AddSubscriptionDialog(
                     placeholder = { Text("https://example.com/sub?token=...") },
                     minLines = 2,
                     maxLines = 4,
-                    colors = fieldColors,
                     modifier = Modifier.fillMaxWidth()
                 )
                 Row(

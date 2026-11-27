@@ -305,7 +305,7 @@ class AppRepository(
      */
     suspend fun loadInstalledApps(): List<InstalledAppInfo> = withContext(Dispatchers.IO) {
         val pm = context.packageManager
-        val apps = pm.getInstalledApplications(0)
+        val apps = pm.getInstalledApplications(PackageManager.GET_META_DATA)
         apps.filter { it.packageName != context.packageName }
             .map { info ->
                 val isSystem = (info.flags and ApplicationInfo.FLAG_SYSTEM) != 0

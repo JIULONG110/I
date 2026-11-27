@@ -1,7 +1,6 @@
 package com.iproxy.app.ui.screens
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -46,6 +45,7 @@ import androidx.compose.material3.Switch
 import androidx.compose.material3.Tab
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -66,11 +66,6 @@ import com.iproxy.app.data.model.PerAppMode
 import com.iproxy.app.data.model.RoutingMode
 import com.iproxy.app.data.repository.InstalledAppInfo
 import com.iproxy.app.ui.components.LiquidGlassCard
-import com.iproxy.app.ui.components.darkFilterChipBorder
-import com.iproxy.app.ui.components.darkFilterChipColors
-import com.iproxy.app.ui.components.darkOutlinedTextFieldColors
-import com.iproxy.app.ui.components.darkTopAppBarColors
-import com.iproxy.app.ui.theme.CyanAccent
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -95,11 +90,10 @@ fun RulesAndLogsScreen(
 
     Scaffold(
         containerColor = Color.Transparent,
-        contentColor = MaterialTheme.colorScheme.onBackground,
         topBar = {
             TopAppBar(
                 title = { Text("分流与日志") },
-                colors = darkTopAppBarColors()
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.Transparent)
             )
         }
     ) { padding ->
@@ -110,21 +104,16 @@ fun RulesAndLogsScreen(
         ) {
             PrimaryTabRow(
                 selectedTabIndex = selectedTab,
-                containerColor = Color.Transparent,
-                contentColor = CyanAccent
+                containerColor = Color.Transparent
             ) {
                 Tab(
                     selected = selectedTab == 0,
                     onClick = { selectedTab = 0 },
-                    selectedContentColor = CyanAccent,
-                    unselectedContentColor = MaterialTheme.colorScheme.onSurfaceVariant,
                     text = { Text("分流规则") }
                 )
                 Tab(
                     selected = selectedTab == 1,
                     onClick = { selectedTab = 1 },
-                    selectedContentColor = CyanAccent,
-                    unselectedContentColor = MaterialTheme.colorScheme.onSurfaceVariant,
                     text = { Text("运行日志 (${logs.size})") }
                 )
             }
@@ -257,12 +246,9 @@ private fun RulesConfigTab(
                 }
                 Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                     PerAppMode.entries.forEach { mode ->
-                        val selected = settings.perAppMode == mode
                         FilterChip(
-                            selected = selected,
+                            selected = settings.perAppMode == mode,
                             onClick = { onUpdateSettings { it.copy(perAppMode = mode) } },
-                            colors = darkFilterChipColors(),
-                            border = darkFilterChipBorder(selected),
                             label = {
                                 Text(
                                     when (mode) {
@@ -275,11 +261,6 @@ private fun RulesConfigTab(
                         )
                     }
                 }
-                Text(
-                    text = "仅在您进入应用列表时读取本机已安装应用名称与包名，用于分应用代理规则，不上传个人数据。",
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
                 if (settings.perAppMode != PerAppMode.DISABLED) {
                     Button(onClick = onOpenPerAppSelector, modifier = Modifier.fillMaxWidth()) {
                         Text("选择应用 (${settings.selectedAppPackages.size})")
@@ -292,14 +273,12 @@ private fun RulesConfigTab(
         LiquidGlassCard(modifier = Modifier.fillMaxWidth()) {
             Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 Text("自定义规则（每行一个域名或 IP/CIDR）", fontWeight = FontWeight.Bold)
-                val fieldColors = darkOutlinedTextFieldColors()
                 OutlinedTextField(
                     value = proxyRules,
                     onValueChange = { proxyRules = it },
                     label = { Text("强制走代理规则 (例如 openai.com, google.com)") },
                     minLines = 2,
                     maxLines = 4,
-                    colors = fieldColors,
                     modifier = Modifier.fillMaxWidth()
                 )
                 OutlinedTextField(
@@ -308,7 +287,6 @@ private fun RulesConfigTab(
                     label = { Text("强制直连规则 (例如 baidu.com, 192.168.0.0/16)") },
                     minLines = 2,
                     maxLines = 4,
-                    colors = fieldColors,
                     modifier = Modifier.fillMaxWidth()
                 )
                 OutlinedTextField(
@@ -317,7 +295,6 @@ private fun RulesConfigTab(
                     label = { Text("屏蔽拦截规则") },
                     minLines = 2,
                     maxLines = 4,
-                    colors = fieldColors,
                     modifier = Modifier.fillMaxWidth()
                 )
                 Button(
@@ -361,12 +338,9 @@ private fun LogsConsoleTab(
         ) {
             Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                 listOf("ALL", "INFO", "WARN", "ERROR").forEach { lvl ->
-                    val selected = levelFilter == lvl
                     FilterChip(
-                        selected = selected,
+                        selected = levelFilter == lvl,
                         onClick = { levelFilter = lvl },
-                        colors = darkFilterChipColors(),
-                        border = darkFilterChipBorder(selected),
                         label = { Text(lvl) }
                     )
                 }
@@ -385,14 +359,13 @@ private fun LogsConsoleTab(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(horizontal = 12.dp, vertical = 6.dp)
-                .background(Color(0xFF07101F), RoundedCornerShape(14.dp))
-                .border(1.dp, MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(14.dp))
+                .background(Color(0xFF0A0F1A), RoundedCornerShape(14.dp))
                 .padding(12.dp)
         ) {
             if (filteredLogs.isEmpty()) {
                 Text(
                     text = "暂无运行日志，连接节点后将在此实时输出诊断信息...",
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    color = Color(0xFF64748B),
                     fontFamily = FontFamily.Monospace,
                     fontSize = 12.sp
                 )
@@ -452,11 +425,10 @@ fun PerAppSelectorScreen(
 
     Scaffold(
         containerColor = Color.Transparent,
-        contentColor = MaterialTheme.colorScheme.onBackground,
         topBar = {
             TopAppBar(
                 title = { Text("选择分应用代理 (${selectedPackages.size})") },
-                colors = darkTopAppBarColors(),
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.Transparent),
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(Icons.AutoMirrored.Rounded.ArrowBack, contentDescription = "返回")
@@ -483,14 +455,11 @@ fun PerAppSelectorScreen(
                     placeholder = { Text("搜索应用名称或包名...") },
                     leadingIcon = { Icon(Icons.Rounded.Search, null) },
                     singleLine = true,
-                    colors = darkOutlinedTextFieldColors(),
                     modifier = Modifier.weight(1f)
                 )
                 FilterChip(
                     selected = showSystemApps,
                     onClick = { showSystemApps = !showSystemApps },
-                    colors = darkFilterChipColors(),
-                    border = darkFilterChipBorder(showSystemApps),
                     label = { Text("系统应用") }
                 )
             }

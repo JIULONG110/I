@@ -13,7 +13,6 @@ import android.os.Build
 import android.os.Bundle
 import android.provider.Settings
 import androidx.activity.ComponentActivity
-import androidx.activity.SystemBarStyle
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
@@ -21,13 +20,9 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
-import androidx.compose.material3.Button
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
-import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -42,9 +37,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.viewmodel.compose.viewModel
-import com.iproxy.app.data.model.VpnStatus
 import com.iproxy.app.ui.components.AppUpdateDialog
-import com.iproxy.app.ui.components.IProxyAlertDialog
 import com.iproxy.app.ui.components.LiquidBackdrop
 import com.iproxy.app.ui.components.LiquidBottomNavBar
 import com.iproxy.app.ui.components.SplashBrandOverlay
@@ -64,13 +57,7 @@ import kotlinx.coroutines.launch
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        enableEdgeToEdge(
-            statusBarStyle = SystemBarStyle.dark(android.graphics.Color.TRANSPARENT),
-            navigationBarStyle = SystemBarStyle.dark(android.graphics.Color.TRANSPARENT)
-        )
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-            window.isNavigationBarContrastEnforced = false
-        }
+        enableEdgeToEdge()
         setContent {
             IProxyAppRoot()
         }
@@ -110,18 +97,18 @@ fun IProxyAppRoot(viewModel: MainViewModel = viewModel()) {
     var openSubDialogOnNodes by remember { mutableStateOf(false) }
     var showSplashOverlay by remember { mutableStateOf(true) }
 
-    var hasPromptedNotificationPerm by remember { mutableStateOf(false) }
-    var showNotificationRationaleDialog by remember { mutableStateOf(false) }
-    var pendingVpnConsentIntent by remember { mutableStateOf<Intent?>(null) }
-    var showInstallPermissionRationaleDialog by remember { mutableStateOf(false) }
-
     // 简短黑曜石液态开屏展示，随后平滑进入主界面；期间发现更新会立即弹窗
     LaunchedEffect(Unit) {
         delay(650L)
         showSplashOverlay = false
     }
 
-    // 系统 VPN 授权对话框启动器（官方 VpnService.prepare 确认流程）
+    // Android 13+ 通知权限引导（用于展示实时网速通知栏）
+    val notificationPermLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { _ -> }
+
+    // 系统 VPN 授权对话框启动器
     val vpnPermLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.StartActivityForResult()
     ) { result ->
@@ -129,21 +116,9 @@ fun IProxyAppRoot(viewModel: MainViewModel = viewModel()) {
             viewModel.onVpnPermissionGranted()
         } else {
             scope.launch {
-                snackbarHostState.showSnackbar("未授予系统 VPN 权限，暂未建立通道；节点与订阅等其余功能仍可正常使用")
+                snackbarHostState.showSnackbar("需要授予系统 VPN 权限才能建立加密通道")
             }
         }
-    }
-
-    // Android 13+ 通知权限引导：仅在用户主动发起连接且先弹窗说明后按需申请；无论授权与否均继续后续流程
-    val notificationPermLauncher = rememberLauncherForActivityResult(
-        ActivityResultContracts.RequestPermission()
-    ) { granted ->
-        if (!granted) {
-            scope.launch {
-                snackbarHostState.showSnackbar("未开启通知权限，状态栏将不显示实时网速通知，代理连接仍可继续")
-            }
-        }
-        viewModel.startConnectionFlow()
     }
 
     // 未知来源安装权限返回后自动继续安装 APK
@@ -154,33 +129,18 @@ fun IProxyAppRoot(viewModel: MainViewModel = viewModel()) {
             context.packageManager.canRequestPackageInstalls()
         ) {
             viewModel.retryInstallPendingApk()
-        } else {
-            scope.launch {
-                snackbarHostState.showSnackbar("未开启应用内安装权限，您可继续使用当前版本或点击「浏览器下载」手动安装")
-            }
         }
     }
 
-    fun handleUserConnectToggle() {
-        val status = runtimeState.status
-        if (status == VpnStatus.CONNECTED || status == VpnStatus.CONNECTING) {
-            viewModel.toggleConnection()
-            return
-        }
-        if (selectedNode == null) {
-            viewModel.startConnectionFlow()
-            return
-        }
-        val needsNotificationPrompt = Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
-            !hasPromptedNotificationPerm &&
-            ContextCompat.checkSelfPermission(
+    LaunchedEffect(Unit) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            val granted = ContextCompat.checkSelfPermission(
                 context,
                 Manifest.permission.POST_NOTIFICATIONS
-            ) != PackageManager.PERMISSION_GRANTED
-        if (needsNotificationPrompt) {
-            showNotificationRationaleDialog = true
-        } else {
-            viewModel.startConnectionFlow()
+            ) == PackageManager.PERMISSION_GRANTED
+            if (!granted) {
+                notificationPermLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+            }
         }
     }
 
@@ -194,7 +154,7 @@ fun IProxyAppRoot(viewModel: MainViewModel = viewModel()) {
         viewModel.requestVpnPermissionEvent.collect {
             val intent = VpnService.prepare(context)
             if (intent != null) {
-                pendingVpnConsentIntent = intent
+                vpnPermLauncher.launch(intent)
             } else {
                 viewModel.onVpnPermissionGranted()
             }
@@ -204,7 +164,10 @@ fun IProxyAppRoot(viewModel: MainViewModel = viewModel()) {
     LaunchedEffect(Unit) {
         viewModel.requestInstallPermissionEvent.collect {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                showInstallPermissionRationaleDialog = true
+                val intent = Intent(Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES).apply {
+                    data = Uri.parse("package:${context.packageName}")
+                }
+                installPermLauncher.launch(intent)
             }
         }
     }
@@ -236,7 +199,7 @@ fun IProxyAppRoot(viewModel: MainViewModel = viewModel()) {
         }
     }
 
-    IProxyTheme {
+    IProxyTheme(themeMode = settings.themeMode) {
         LiquidBackdrop(status = runtimeState.status) {
             Box(modifier = Modifier.fillMaxSize()) {
                 when {
@@ -266,7 +229,6 @@ fun IProxyAppRoot(viewModel: MainViewModel = viewModel()) {
                     else -> {
                         Scaffold(
                             containerColor = Color.Transparent,
-                            contentColor = MaterialTheme.colorScheme.onBackground,
                             snackbarHost = { SnackbarHost(hostState = snackbarHostState) },
                             bottomBar = {
                                 LiquidBottomNavBar(
@@ -283,7 +245,8 @@ fun IProxyAppRoot(viewModel: MainViewModel = viewModel()) {
                                         nodeCount = nodes.size,
                                         settings = settings,
                                         isTestingLatency = isTestingLatency,
-                                        onToggleConnect = { handleUserConnectToggle() },
+                                        onToggleConnect = { viewModel.toggleConnection() },
+                                        onCycleThemeMode = { viewModel.cycleThemeMode() },
                                         onSelectNodeClick = { currentTab = 1 },
                                         onTestCurrentNode = { viewModel.measureSingleNode(it) },
                                         onChangeRoutingMode = { viewModel.setRoutingMode(it) },
@@ -379,94 +342,6 @@ fun IProxyAppRoot(viewModel: MainViewModel = viewModel()) {
                         onSaveApkAndUninstall = { viewModel.savePendingApkAndUninstall() },
                         onOpenReleasePage = { openExternalUrl(update.releasePageUrl) },
                         onDismiss = { viewModel.dismissUpdateDialog() }
-                    )
-                }
-
-                if (showNotificationRationaleDialog) {
-                    IProxyAlertDialog(
-                        onDismissRequest = {
-                            showNotificationRationaleDialog = false
-                            hasPromptedNotificationPerm = true
-                            viewModel.startConnectionFlow()
-                        },
-                        title = { Text("通知权限用途说明") },
-                        text = {
-                            Text("开启通知权限后，系统状态栏可实时展示加密连接状态、当前节点与上下行速率（Android 前台服务规范建议）。暂不开启仍可直接连接并使用所有代理功能。")
-                        },
-                        confirmButton = {
-                            Button(onClick = {
-                                showNotificationRationaleDialog = false
-                                hasPromptedNotificationPerm = true
-                                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-                                    notificationPermLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
-                                } else {
-                                    viewModel.startConnectionFlow()
-                                }
-                            }) {
-                                Text("同意并申请")
-                            }
-                        },
-                        dismissButton = {
-                            TextButton(onClick = {
-                                showNotificationRationaleDialog = false
-                                hasPromptedNotificationPerm = true
-                                viewModel.startConnectionFlow()
-                            }) {
-                                Text("暂不开启，直接连接")
-                            }
-                        }
-                    )
-                }
-
-                pendingVpnConsentIntent?.let { vpnIntent ->
-                    IProxyAlertDialog(
-                        onDismissRequest = { pendingVpnConsentIntent = null },
-                        title = { Text("系统 VPN 授权说明") },
-                        text = {
-                            Text("点击连接将调用 Android 官方 VPN 授权弹窗以建立本地加密虚拟网卡，仅转发您的代理流量，不读取无关个人数据。拒绝授权后，节点管理、订阅与测速功能仍可正常使用。")
-                        },
-                        confirmButton = {
-                            Button(onClick = {
-                                val intentToLaunch = vpnIntent
-                                pendingVpnConsentIntent = null
-                                vpnPermLauncher.launch(intentToLaunch)
-                            }) {
-                                Text("前往系统授权")
-                            }
-                        },
-                        dismissButton = {
-                            TextButton(onClick = { pendingVpnConsentIntent = null }) {
-                                Text("取消")
-                            }
-                        }
-                    )
-                }
-
-                if (showInstallPermissionRationaleDialog) {
-                    IProxyAlertDialog(
-                        onDismissRequest = { showInstallPermissionRationaleDialog = false },
-                        title = { Text("安装应用权限说明") },
-                        text = {
-                            Text("需要开启「允许安装来自此来源的应用」，以便调用系统安装器完成已校验更新包的升级。拒绝后现有代理功能不受影响，也可改用「浏览器下载」手动安装。")
-                        },
-                        confirmButton = {
-                            Button(onClick = {
-                                showInstallPermissionRationaleDialog = false
-                                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                                    val intent = Intent(Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES).apply {
-                                        data = Uri.parse("package:${context.packageName}")
-                                    }
-                                    installPermLauncher.launch(intent)
-                                }
-                            }) {
-                                Text("前往系统设置")
-                            }
-                        },
-                        dismissButton = {
-                            TextButton(onClick = { showInstallPermissionRationaleDialog = false }) {
-                                Text("暂不授权")
-                            }
-                        }
                     )
                 }
             }

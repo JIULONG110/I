@@ -68,8 +68,7 @@ import com.iproxy.app.data.model.VpnRuntimeState
 import com.iproxy.app.data.model.VpnStatus
 import com.iproxy.app.ui.components.BlackBrandLogo
 import com.iproxy.app.ui.components.LiquidGlassCard
-import com.iproxy.app.ui.components.darkFilterChipBorder
-import com.iproxy.app.ui.components.darkFilterChipColors
+import com.iproxy.app.ui.components.LiquidThemeToggleButton
 import com.iproxy.app.ui.theme.BrandBlue
 import com.iproxy.app.ui.theme.ConnectedGreen
 import com.iproxy.app.ui.theme.CyanAccent
@@ -79,7 +78,7 @@ import com.iproxy.app.ui.theme.WarningAmber
 import kotlinx.coroutines.delay
 
 /**
- * 首页连接仪表盘：液态黑曜石核心按钮、实时速率、节点摘要与智能分流
+ * 首页连接仪表盘：液态黑曜石核心按钮、实时速率、节点摘要、分流与日夜间模式快捷切换
  */
 @Composable
 fun HomeScreen(
@@ -89,6 +88,7 @@ fun HomeScreen(
     settings: AppSettings,
     isTestingLatency: Boolean,
     onToggleConnect: () -> Unit,
+    onCycleThemeMode: () -> Unit,
     onSelectNodeClick: () -> Unit,
     onTestCurrentNode: (String) -> Unit,
     onChangeRoutingMode: (RoutingMode) -> Unit,
@@ -138,8 +138,8 @@ fun HomeScreen(
             VpnStatus.CONNECTED -> ConnectedGreen
             VpnStatus.CONNECTING -> WarningAmber
             VpnStatus.ERROR -> ErrorRed
-            else -> CyanAccent
-    },
+            else -> if (palette.isDark) CyanAccent else MaterialTheme.colorScheme.primary
+        },
         label = "ringColor"
     )
 
@@ -150,7 +150,7 @@ fun HomeScreen(
             .padding(horizontal = 20.dp, vertical = 14.dp),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        // 顶部品牌抬头 + 连接状态胶囊
+        // 顶部品牌抬头 + 日夜间一键切换 + 状态胶囊
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceBetween,
@@ -177,36 +177,46 @@ fun HomeScreen(
                 }
             }
 
-            Surface(
-                shape = CircleShape,
-                color = Color(0x99111E33),
-                border = BorderStroke(
-                    1.dp,
-                    Brush.linearGradient(listOf(palette.glassBorderTop, palette.glassBorderBottom))
-                )
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                Row(
-                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
-                    verticalAlignment = Alignment.CenterVertically
+                LiquidThemeToggleButton(
+                    themeMode = settings.themeMode,
+                    onClick = onCycleThemeMode
+                )
+
+                Surface(
+                    shape = CircleShape,
+                    color = if (palette.isDark) Color(0x88151E30) else Color(0xCCFFFFFF),
+                    border = BorderStroke(
+                        1.dp,
+                        Brush.linearGradient(listOf(palette.glassBorderTop, palette.glassBorderBottom))
+                    )
                 ) {
-                    Icon(
-                        imageVector = Icons.Rounded.Security,
-                        contentDescription = null,
-                        tint = ringColor,
-                        modifier = Modifier.size(15.dp)
-                    )
-                    Spacer(modifier = Modifier.width(5.dp))
-                    Text(
-                        text = when (runtimeState.status) {
-                            VpnStatus.CONNECTED -> FormatUtils.formatDuration(elapsedMs)
-                            VpnStatus.CONNECTING -> "连接中"
-                            VpnStatus.ERROR -> "异常"
-                            else -> "未连接"
-                        },
-                        style = MaterialTheme.typography.labelMedium,
-                        fontWeight = FontWeight.SemiBold,
-                        color = MaterialTheme.colorScheme.onSurface
-                    )
+                    Row(
+                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(
+                            imageVector = Icons.Rounded.Security,
+                            contentDescription = null,
+                            tint = ringColor,
+                            modifier = Modifier.size(15.dp)
+                        )
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text(
+                            text = when (runtimeState.status) {
+                                VpnStatus.CONNECTED -> FormatUtils.formatDuration(elapsedMs)
+                                VpnStatus.CONNECTING -> "连接中"
+                                VpnStatus.ERROR -> "异常"
+                                else -> "未连接"
+                            },
+                            style = MaterialTheme.typography.labelMedium,
+                            fontWeight = FontWeight.SemiBold,
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
+                    }
                 }
             }
         }
@@ -267,7 +277,7 @@ fun HomeScreen(
                 border = BorderStroke(
                     width = 2.5.dp,
                     brush = Brush.linearGradient(
-                        listOf(Color(0x997DD3FC), ringColor)
+                        listOf(Color.White.copy(alpha = 0.65f), ringColor)
                     )
                 ),
                 shadowElevation = if (isConnected) 16.dp else 10.dp
@@ -287,7 +297,7 @@ fun HomeScreen(
                             .clip(CircleShape)
                             .background(
                                 Brush.verticalGradient(
-                                    listOf(Color(0x3893C5FD), Color.Transparent)
+                                    listOf(Color.White.copy(alpha = 0.24f), Color.Transparent)
                                 )
                             )
                     )
@@ -498,8 +508,6 @@ fun HomeScreen(
                         FilterChip(
                             selected = selected,
                             onClick = { onChangeRoutingMode(mode) },
-                            colors = darkFilterChipColors(),
-                            border = darkFilterChipBorder(selected),
                             label = {
                                 Text(
                                     text = when (mode) {

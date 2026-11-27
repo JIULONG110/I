@@ -40,7 +40,7 @@ object QrCodeHelper {
             for (y in 0 until sizePx) {
                 val offset = y * sizePx
                 for (x in 0 until sizePx) {
-                    pixels[offset + x] = if (matrix.get(x, y)) Color.rgb(4, 11, 22) else Color.rgb(230, 244, 254)
+                    pixels[offset + x] = if (matrix.get(x, y)) Color.BLACK else Color.WHITE
                 }
             }
             createBitmap(sizePx, sizePx).apply {

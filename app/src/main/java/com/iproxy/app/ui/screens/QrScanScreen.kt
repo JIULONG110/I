@@ -17,47 +17,39 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
-import androidx.compose.material.icons.rounded.CameraAlt
 import androidx.compose.material.icons.rounded.PhotoLibrary
 import androidx.compose.material3.Button
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import com.iproxy.app.ui.QrCodeHelper
-import com.iproxy.app.ui.components.LiquidGlassCard
-import com.iproxy.app.ui.components.darkTopAppBarColors
-import com.iproxy.app.ui.theme.CyanAccent
 import java.util.concurrent.Executors
 import java.util.concurrent.atomic.AtomicBoolean
 
 /**
- * 相机扫码 + 相册选图识别二维码页面（严格先说明权限用途再申请，拒绝后相册识别与返回均保持可用）
+ * 相机扫码 + 相册选图识别二维码页面
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -76,16 +68,11 @@ fun QrScanScreen(
                 PackageManager.PERMISSION_GRANTED
         )
     }
-    var permissionDeniedOnce by remember { mutableStateOf(false) }
 
     val permissionLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestPermission()
     ) { granted ->
         hasCameraPermission = granted
-        if (!granted) {
-            permissionDeniedOnce = true
-            onScanError("未授予相机权限，您仍可直接从相册选择二维码图片导入")
-        }
     }
 
     val photoPickerLauncher = rememberLauncherForActivityResult(
@@ -97,13 +84,16 @@ fun QrScanScreen(
             .onFailure { onScanError(it.message ?: "读取图片失败") }
     }
 
+    LaunchedEffect(Unit) {
+        if (!hasCameraPermission) {
+            permissionLauncher.launch(Manifest.permission.CAMERA)
+        }
+    }
+
     Scaffold(
-        containerColor = Color.Transparent,
-        contentColor = MaterialTheme.colorScheme.onBackground,
         topBar = {
             TopAppBar(
                 title = { Text("扫描节点或订阅二维码") },
-                colors = darkTopAppBarColors(),
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(Icons.AutoMirrored.Rounded.ArrowBack, contentDescription = "返回")
@@ -181,47 +171,13 @@ fun QrScanScreen(
                     verticalArrangement = Arrangement.Center,
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
-                    LiquidGlassCard(modifier = Modifier.fillMaxWidth(), elevated = true) {
-                        Column(
-                            modifier = Modifier.padding(20.dp),
-                            verticalArrangement = Arrangement.spacedBy(12.dp)
-                        ) {
-                            Icon(
-                                imageVector = Icons.Rounded.CameraAlt,
-                                contentDescription = null,
-                                tint = CyanAccent,
-                                modifier = Modifier.size(32.dp)
-                            )
-                            Text(
-                                text = "相机权限用途说明",
-                                style = MaterialTheme.typography.titleMedium,
-                                fontWeight = FontWeight.Bold
-                            )
-                            Text(
-                                text = "仅用于即时对准识别节点或订阅二维码，不会拍照存档或上传任何影像数据。若暂不授权，您仍可通过下方「从相册选择二维码图片」或返回使用剪贴板导入，其他功能不受影响。",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                            if (permissionDeniedOnce) {
-                                Text(
-                                    text = "此前未授予相机权限：如系统不再弹出授权框，请在系统应用权限设置中开启相机，或直接使用下方相册选图。",
-                                    style = MaterialTheme.typography.labelSmall,
-                                    color = CyanAccent
-                                )
-                            }
-                            Button(
-                                onClick = { permissionLauncher.launch(Manifest.permission.CAMERA) },
-                                modifier = Modifier.fillMaxWidth()
-                            ) {
-                                Text("同意并申请相机权限")
-                            }
-                            OutlinedButton(
-                                onClick = onBack,
-                                modifier = Modifier.fillMaxWidth()
-                            ) {
-                                Text("暂不授权，返回上一页")
-                            }
-                        }
+                    Text(
+                        text = "需要相机权限以扫描二维码，您也可以直接从相册图片中识别二维码。",
+                        style = MaterialTheme.typography.bodyMedium
+                    )
+                    Spacer(modifier = Modifier.height(16.dp))
+                    Button(onClick = { permissionLauncher.launch(Manifest.permission.CAMERA) }) {
+                        Text("授予相机权限")
                     }
                 }
             }
@@ -234,7 +190,6 @@ fun QrScanScreen(
                 },
                 modifier = Modifier
                     .align(Alignment.BottomCenter)
-                    .navigationBarsPadding()
                     .fillMaxWidth()
                     .padding(20.dp)
             ) {

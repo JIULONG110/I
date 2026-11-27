@@ -10,7 +10,6 @@ import com.google.gson.reflect.TypeToken
 import com.iproxy.app.data.model.AppSettings
 import com.iproxy.app.data.model.ServerNode
 import com.iproxy.app.data.model.Subscription
-import com.iproxy.app.data.model.ThemeMode
 import com.tencent.mmkv.MMKV
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -45,12 +44,11 @@ class AppStorage(private val context: Context) {
 
     val settingsFlow: Flow<AppSettings> = context.settingsDataStore.data.map { prefs ->
         val raw = prefs[KEY_SETTINGS_JSON]
-        val parsed = if (raw.isNullOrBlank()) {
+        if (raw.isNullOrBlank()) {
             AppSettings()
         } else {
             runCatching { gson.fromJson(raw, AppSettings::class.java) }.getOrNull() ?: AppSettings()
         }
-        parsed.copy(themeMode = ThemeMode.DARK)
     }
 
     init {
@@ -113,8 +111,7 @@ class AppStorage(private val context: Context) {
 
     fun readSettingsSnapshotSync(): AppSettings {
         val raw = mmkv.decodeString(KEY_SETTINGS_SNAPSHOT) ?: return AppSettings()
-        val parsed = runCatching { gson.fromJson(raw, AppSettings::class.java) }.getOrNull() ?: AppSettings()
-        return parsed.copy(themeMode = ThemeMode.DARK)
+        return runCatching { gson.fromJson(raw, AppSettings::class.java) }.getOrNull() ?: AppSettings()
     }
 
     suspend fun getSettingsOnce(): AppSettings {
@@ -123,10 +120,10 @@ class AppStorage(private val context: Context) {
 
     suspend fun updateSettings(transform: (AppSettings) -> AppSettings) {
         context.settingsDataStore.edit { prefs ->
-            val current = (prefs[KEY_SETTINGS_JSON]?.let {
+            val current = prefs[KEY_SETTINGS_JSON]?.let {
                 runCatching { gson.fromJson(it, AppSettings::class.java) }.getOrNull()
-            } ?: AppSettings()).copy(themeMode = ThemeMode.DARK)
-            val updated = transform(current).copy(themeMode = ThemeMode.DARK)
+            } ?: AppSettings()
+            val updated = transform(current)
             val json = gson.toJson(updated)
             prefs[KEY_SETTINGS_JSON] = json
             mmkv.encode(KEY_SETTINGS_SNAPSHOT, json)
