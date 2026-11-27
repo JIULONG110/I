@@ -4,8 +4,10 @@ import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.snap
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Canvas
@@ -13,12 +15,14 @@ import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -26,6 +30,7 @@ import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -40,8 +45,10 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.ripple
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -52,6 +59,7 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -62,6 +70,7 @@ import com.iproxy.app.ui.theme.BrandBlue
 import com.iproxy.app.ui.theme.ConnectedGreen
 import com.iproxy.app.ui.theme.CyanAccent
 import com.iproxy.app.ui.theme.ErrorRed
+import com.iproxy.app.ui.theme.IProxyTheme
 import com.iproxy.app.ui.theme.LocalLiquidPalette
 import com.iproxy.app.ui.theme.WarningAmber
 
@@ -229,6 +238,9 @@ fun LiquidGlassCard(
 
 /**
  * 悬浮液态胶囊底部导航栏
+ *
+ * 暗黑模式下呈深海军蓝玻璃质感、蓝色流动粒子与星链连线、柔和蓝色选中高光，
+ * 并自动响应系统「移除动画 / 减弱动态效果」设置；浅色模式沿用通透液态玻璃效果。
  */
 @Composable
 fun LiquidBottomNavBar(
@@ -237,7 +249,7 @@ fun LiquidBottomNavBar(
     modifier: Modifier = Modifier
 ) {
     val palette = LocalLiquidPalette.current
-    val dockShape = RoundedCornerShape(28.dp)
+    val dockShape = if (palette.isDark) CircleShape else RoundedCornerShape(28.dp)
     val items = listOf(
         Triple(0, "连接", Icons.Rounded.PowerSettingsNew),
         Triple(1, "节点", Icons.Rounded.Dns),
@@ -245,14 +257,28 @@ fun LiquidBottomNavBar(
         Triple(3, "设置", Icons.Rounded.Settings)
     )
 
+    val reduceMotion = if (palette.isDark) rememberReduceMotionState() else false
+    val animatedTabIndex by animateFloatAsState(
+        targetValue = currentTab.coerceIn(0, items.lastIndex).toFloat(),
+        animationSpec = if (reduceMotion) snap() else tween(durationMillis = 280, easing = FastOutSlowInEasing),
+        label = "darkDockSelectedSlide"
+    )
+
     Box(
         modifier = modifier
             .fillMaxWidth()
             .navigationBarsPadding()
-            .padding(horizontal = 16.dp, vertical = 10.dp)
+            .padding(horizontal = 14.dp, vertical = 10.dp),
+        contentAlignment = Alignment.Center
     ) {
-        Surface(
-            modifier = Modifier
+        val dockModifier = if (palette.isDark) {
+            Modifier
+                .widthIn(max = 520.dp)
+                .fillMaxWidth()
+                .clip(dockShape)
+        } else {
+            Modifier
+                .widthIn(max = 520.dp)
                 .fillMaxWidth()
                 .clip(dockShape)
                 .background(
@@ -263,27 +289,47 @@ fun LiquidBottomNavBar(
                     width = 1.dp,
                     brush = Brush.linearGradient(listOf(palette.glassBorderTop, palette.glassBorderBottom)),
                     shape = dockShape
-                ),
+                )
+        }
+
+        Surface(
+            modifier = dockModifier,
             shape = dockShape,
             color = Color.Transparent,
-            shadowElevation = if (palette.isDark) 12.dp else 8.dp
+            shadowElevation = if (palette.isDark) 14.dp else 8.dp
         ) {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 8.dp, vertical = 6.dp),
-                horizontalArrangement = Arrangement.SpaceEvenly,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                items.forEach { (index, label, icon) ->
-                    LiquidDockItem(
-                        label = label,
-                        icon = icon,
-                        selected = currentTab == index,
-                        selectedPillColor = palette.dockSelectedPill,
-                        onClick = { onSelectTab(index) },
-                        modifier = Modifier.weight(1f)
+            Box(modifier = Modifier.fillMaxWidth()) {
+                if (palette.isDark) {
+                    DarkParticleDockBackdrop(
+                        animatedSelectedIndex = animatedTabIndex,
+                        tabCount = items.size,
+                        reduceMotion = reduceMotion,
+                        modifier = Modifier.matchParentSize()
                     )
+                }
+
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(
+                            horizontal = if (palette.isDark) 6.dp else 8.dp,
+                            vertical = if (palette.isDark) 5.dp else 6.dp
+                        ),
+                    horizontalArrangement = Arrangement.SpaceEvenly,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    items.forEach { (index, label, icon) ->
+                        LiquidDockItem(
+                            label = label,
+                            icon = icon,
+                            selected = currentTab == index,
+                            isDarkDock = palette.isDark,
+                            reduceMotion = reduceMotion,
+                            selectedPillColor = palette.dockSelectedPill,
+                            onClick = { onSelectTab(index) },
+                            modifier = Modifier.weight(1f)
+                        )
+                    }
                 }
             }
         }
@@ -295,31 +341,51 @@ private fun LiquidDockItem(
     label: String,
     icon: ImageVector,
     selected: Boolean,
+    isDarkDock: Boolean,
+    reduceMotion: Boolean,
     selectedPillColor: Color,
     onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
+    val itemShape = if (isDarkDock) CircleShape else RoundedCornerShape(20.dp)
+    val animMs = if (reduceMotion) 0 else 250
+
+    // 暗黑模式下选中态由底层滑动蓝色玻璃高光统一渲染，避免叠出额外白圈
     val pillColor by animateColorAsState(
-        targetValue = if (selected) selectedPillColor else Color.Transparent,
-        animationSpec = tween(250),
+        targetValue = when {
+            isDarkDock -> Color.Transparent
+            selected -> selectedPillColor
+            else -> Color.Transparent
+        },
+        animationSpec = tween(animMs),
         label = "dockPill"
     )
     val contentColor by animateColorAsState(
-        targetValue = if (selected) {
-            MaterialTheme.colorScheme.primary
-        } else {
-            MaterialTheme.colorScheme.onSurfaceVariant
+        targetValue = when {
+            isDarkDock && selected -> DarkNavPalette.IconSelected
+            isDarkDock -> DarkNavPalette.IconUnselected
+            selected -> MaterialTheme.colorScheme.primary
+            else -> MaterialTheme.colorScheme.onSurfaceVariant
         },
-        animationSpec = tween(250),
+        animationSpec = tween(animMs),
         label = "dockText"
     )
+    val interactionSource = remember { MutableInteractionSource() }
 
     Column(
         modifier = modifier
-            .clip(RoundedCornerShape(20.dp))
+            .defaultMinSize(minHeight = 50.dp)
+            .clip(itemShape)
             .background(pillColor)
-            .clickable(onClick = onClick)
-            .padding(vertical = 8.dp, horizontal = 4.dp),
+            .clickable(
+                interactionSource = interactionSource,
+                indication = ripple(
+                    bounded = true,
+                    color = if (isDarkDock) DarkNavPalette.RippleBlue else Color.Unspecified
+                ),
+                onClick = onClick
+            )
+            .padding(vertical = 7.dp, horizontal = 4.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center
     ) {
@@ -418,5 +484,23 @@ fun BlackBrandLogo(
             contentScale = ContentScale.Crop,
             modifier = Modifier.fillMaxSize()
         )
+    }
+}
+
+@Preview(showBackground = true, backgroundColor = 0xFF040812, widthDp = 412)
+@Composable
+private fun LiquidBottomNavBarDarkPreview() {
+    IProxyTheme(themeMode = ThemeMode.DARK) {
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .background(Color(0xFF040812))
+                .padding(vertical = 16.dp)
+        ) {
+            LiquidBottomNavBar(
+                currentTab = 0,
+                onSelectTab = {}
+            )
+        }
     }
 }
