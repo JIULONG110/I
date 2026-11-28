@@ -3,10 +3,7 @@ package com.iproxy.app.ui.screens
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Image
-import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
@@ -18,14 +15,13 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -49,19 +45,9 @@ import androidx.compose.material.icons.rounded.Route
 import androidx.compose.material.icons.rounded.Search
 import androidx.compose.material.icons.rounded.Speed
 import androidx.compose.material.icons.rounded.Tune
-import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Button
-import androidx.compose.material3.Checkbox
-import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
-import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -69,26 +55,44 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import com.iproxy.app.core.util.FormatUtils
 import com.iproxy.app.data.model.ProtocolType
 import com.iproxy.app.data.model.ServerNode
 import com.iproxy.app.data.model.Subscription
 import com.iproxy.app.ui.QrCodeHelper
+import com.iproxy.app.ui.components.BlueConstellationParticlesCanvas
+import com.iproxy.app.ui.components.GlassActionButton
+import com.iproxy.app.ui.components.GlassCheckbox
+import com.iproxy.app.ui.components.GlassDialog
+import com.iproxy.app.ui.components.GlassDivider
+import com.iproxy.app.ui.components.GlassDropdownItem
+import com.iproxy.app.ui.components.GlassDropdownMenu
+import com.iproxy.app.ui.components.GlassEmptyStateCard
+import com.iproxy.app.ui.components.GlassGhostButton
+import com.iproxy.app.ui.components.GlassLoadingBar
+import com.iproxy.app.ui.components.GlassSecondaryButton
+import com.iproxy.app.ui.components.GlassSelectableChip
+import com.iproxy.app.ui.components.GlassSmallIconButton
+import com.iproxy.app.ui.components.GlassTextField
 import com.iproxy.app.ui.components.LiquidGlassCard
 import com.iproxy.app.ui.components.ProtoTextMuted
 import com.iproxy.app.ui.components.ProtoTextPrimary
-import com.iproxy.app.ui.components.ProtoTextSubtle
-import com.iproxy.app.ui.components.prototypePrimaryButtonColors
-import com.iproxy.app.ui.components.prototypeTextFieldColors
+import com.iproxy.app.ui.components.drawGlassCapsule3D
+import com.iproxy.app.ui.components.rememberReduceMotionState
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -101,7 +105,7 @@ private sealed interface ActiveNodeEditor {
 }
 
 /**
- * 节点与订阅管理页面：对齐暗黑蓝宝石玻璃材质、间距与列表选态，保留全部节点及订阅操作
+ * 节点与订阅管理页面：全面采用图 1 同款 3D 蓝色实体玻璃材质与高速蓝色星链粒子，保持全部功能、尺寸与交互一致。
  */
 @Composable
 fun NodesScreen(
@@ -213,57 +217,58 @@ fun NodesScreen(
                     icon = Icons.Rounded.Speed,
                     contentDescription = "全部测速",
                     enabled = !isTestingLatency,
+                    seedOffsetSec = 0.2f,
                     onClick = onMeasureAll
                 )
                 DockActionIconButton(
                     icon = Icons.Rounded.Refresh,
                     contentDescription = "更新订阅",
                     enabled = !isRefreshingSubs,
+                    seedOffsetSec = 0.9f,
                     onClick = onRefreshAllSubscriptions
                 )
                 DockActionIconButton(
                     icon = Icons.AutoMirrored.Rounded.Sort,
                     contentDescription = "按延迟排序",
+                    seedOffsetSec = 1.6f,
                     onClick = onSortByLatency
                 )
                 DockActionIconButton(
                     icon = Icons.Rounded.CleaningServices,
                     contentDescription = "清理超时节点",
+                    seedOffsetSec = 2.3f,
                     onClick = onClearUnreachable
                 )
                 Box {
                     DockActionIconButton(
                         icon = Icons.Rounded.Add,
                         contentDescription = "添加节点或订阅",
+                        seedOffsetSec = 3.0f,
                         onClick = { showAddMenu = true }
                     )
-                    DropdownMenu(
+                    GlassDropdownMenu(
                         expanded = showAddMenu,
-                        onDismissRequest = { showAddMenu = false },
-                        containerColor = Color(0xFF0E192A),
-                        shape = RoundedCornerShape(18.dp),
-                        border = BorderStroke(1.dp, Color(0x66709ACA)),
-                        modifier = Modifier.heightIn(max = 460.dp)
+                        onDismissRequest = { showAddMenu = false }
                     ) {
-                        DropdownMenuItem(
-                            text = { Text("从剪贴板导入分享链接", color = ProtoTextPrimary) },
-                            leadingIcon = { Icon(Icons.Rounded.ContentPasteGo, null, tint = Color(0xFF59BAFF)) },
+                        GlassDropdownItem(
+                            text = "从剪贴板导入分享链接",
+                            leadingIcon = Icons.Rounded.ContentPasteGo,
                             onClick = {
                                 showAddMenu = false
                                 onImportClipboard()
                             }
                         )
-                        DropdownMenuItem(
-                            text = { Text("扫描相机二维码", color = ProtoTextPrimary) },
-                            leadingIcon = { Icon(Icons.Rounded.QrCodeScanner, null, tint = Color(0xFF59BAFF)) },
+                        GlassDropdownItem(
+                            text = "扫描相机二维码",
+                            leadingIcon = Icons.Rounded.QrCodeScanner,
                             onClick = {
                                 showAddMenu = false
                                 onOpenQrScan()
                             }
                         )
-                        DropdownMenuItem(
-                            text = { Text("扫描图片中的二维码", color = ProtoTextPrimary) },
-                            leadingIcon = { Icon(Icons.Rounded.PhotoLibrary, null, tint = Color(0xFF59BAFF)) },
+                        GlassDropdownItem(
+                            text = "扫描图片中的二维码",
+                            leadingIcon = Icons.Rounded.PhotoLibrary,
                             onClick = {
                                 showAddMenu = false
                                 qrImagePickerLauncher.launch(
@@ -271,61 +276,60 @@ fun NodesScreen(
                                 )
                             }
                         )
-                        DropdownMenuItem(
-                            text = { Text("添加订阅链接", color = ProtoTextPrimary) },
-                            leadingIcon = { Icon(Icons.Rounded.AddLink, null, tint = Color(0xFF59BAFF)) },
+                        GlassDropdownItem(
+                            text = "添加订阅链接",
+                            leadingIcon = Icons.Rounded.AddLink,
                             onClick = {
                                 showAddMenu = false
                                 showSubDialog = true
                             }
                         )
 
-                        HorizontalDivider(
-                            modifier = Modifier.padding(vertical = 4.dp),
-                            color = Color(0x335D88B9)
-                        )
+                        GlassDivider(modifier = Modifier.padding(vertical = 4.dp))
 
-                        DropdownMenuItem(
-                            text = { Text("添加自定义配置", color = ProtoTextPrimary) },
-                            leadingIcon = { Icon(Icons.Rounded.Code, null, tint = Color(0xFF79D1FF)) },
+                        GlassDropdownItem(
+                            text = "添加自定义配置",
+                            leadingIcon = Icons.Rounded.Code,
+                            accentTint = Color(0xFF79D1FF),
                             onClick = {
                                 showAddMenu = false
                                 activeEditor = ActiveNodeEditor.CustomJson(isOutbound = false)
                             }
                         )
-                        DropdownMenuItem(
-                            text = { Text("添加策略组", color = ProtoTextPrimary) },
-                            leadingIcon = { Icon(Icons.Rounded.Tune, null, tint = Color(0xFF79D1FF)) },
+                        GlassDropdownItem(
+                            text = "添加策略组",
+                            leadingIcon = Icons.Rounded.Tune,
+                            accentTint = Color(0xFF79D1FF),
                             onClick = {
                                 showAddMenu = false
                                 activeEditor = ActiveNodeEditor.PolicyGroup()
                             }
                         )
-                        DropdownMenuItem(
-                            text = { Text("添加链式代理", color = ProtoTextPrimary) },
-                            leadingIcon = { Icon(Icons.Rounded.Route, null, tint = Color(0xFF79D1FF)) },
+                        GlassDropdownItem(
+                            text = "添加链式代理",
+                            leadingIcon = Icons.Rounded.Route,
+                            accentTint = Color(0xFF79D1FF),
                             onClick = {
                                 showAddMenu = false
                                 activeEditor = ActiveNodeEditor.ProxyChain()
                             }
                         )
-                        DropdownMenuItem(
-                            text = { Text("添加自定义出站", color = ProtoTextPrimary) },
-                            leadingIcon = { Icon(Icons.Rounded.Dns, null, tint = Color(0xFF79D1FF)) },
+                        GlassDropdownItem(
+                            text = "添加自定义出站",
+                            leadingIcon = Icons.Rounded.Dns,
+                            accentTint = Color(0xFF79D1FF),
                             onClick = {
                                 showAddMenu = false
                                 activeEditor = ActiveNodeEditor.CustomJson(isOutbound = true)
                             }
                         )
 
-                        HorizontalDivider(
-                            modifier = Modifier.padding(vertical = 4.dp),
-                            color = Color(0x335D88B9)
-                        )
+                        GlassDivider(modifier = Modifier.padding(vertical = 4.dp))
 
                         menuProtocolEntries.forEach { proto ->
-                            DropdownMenuItem(
-                                text = { Text("添加 [${proto.displayName}]", color = ProtoTextPrimary) },
+                            GlassDropdownItem(
+                                text = "添加 [${proto.displayName}]",
+                                badge = proto.scheme.uppercase(),
                                 onClick = {
                                     showAddMenu = false
                                     activeEditor = ActiveNodeEditor.StandardProtocol(protocol = proto)
@@ -340,23 +344,19 @@ fun NodesScreen(
         Spacer(modifier = Modifier.height(12.dp))
 
         if (isTestingLatency || isRefreshingSubs) {
-            LinearProgressIndicator(
-                color = Color(0xFF53CAFF),
-                trackColor = Color(0xFF142338),
+            GlassLoadingBar(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(bottom = 8.dp)
             )
         }
 
-        OutlinedTextField(
+        GlassTextField(
             value = searchQuery,
             onValueChange = { searchQuery = it },
-            placeholder = { Text("搜索节点名称、地址或协议...") },
-            leadingIcon = { Icon(Icons.Rounded.Search, contentDescription = null, tint = Color(0xFF79D1FF)) },
+            placeholder = "搜索节点名称、地址或协议...",
+            leadingIcon = Icons.Rounded.Search,
             singleLine = true,
-            shape = RoundedCornerShape(16.dp),
-            colors = prototypeTextFieldColors(),
             modifier = Modifier.fillMaxWidth()
         )
 
@@ -369,20 +369,23 @@ fun NodesScreen(
                 .padding(vertical = 4.dp),
             horizontalArrangement = Arrangement.spacedBy(8.dp)
         ) {
-            GlassFilterPill(
+            GlassSelectableChip(
                 label = "全部 (${nodes.size})",
                 selected = activeGroupFilter == "ALL",
+                seedOffsetSec = 0.2f,
                 onClick = { activeGroupFilter = "ALL" }
             )
-            GlassFilterPill(
+            GlassSelectableChip(
                 label = "手动导入",
                 selected = activeGroupFilter == "LOCAL",
+                seedOffsetSec = 1.0f,
                 onClick = { activeGroupFilter = "LOCAL" }
             )
-            subscriptions.forEach { sub ->
-                GlassFilterPill(
+            subscriptions.forEachIndexed { idx, sub ->
+                GlassSelectableChip(
                     label = "${sub.name} (${sub.nodeCount})",
                     selected = activeGroupFilter == sub.id,
+                    seedOffsetSec = 1.8f + idx * 0.7f,
                     onClick = { activeGroupFilter = sub.id }
                 )
             }
@@ -409,11 +412,29 @@ fun NodesScreen(
                     .padding(bottom = 112.dp),
                 contentAlignment = Alignment.Center
             ) {
-                Text(
-                    text = "暂无匹配节点，点击右上角「+」添加或导入",
-                    fontSize = 13.sp,
-                    color = ProtoTextSubtle
-                )
+                GlassEmptyStateCard(
+                    title = if (nodes.isEmpty()) "暂无节点配置" else "未找到匹配节点",
+                    subtitle = if (nodes.isEmpty()) {
+                        "可从剪贴板导入节点分享链接、扫描二维码，或添加订阅链接。"
+                    } else {
+                        "请调整搜索关键词或分组筛选条件。"
+                    }
+                ) {
+                    if (nodes.isEmpty()) {
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            GlassSecondaryButton(onClick = onImportClipboard) {
+                                Icon(Icons.Rounded.ContentPasteGo, null, modifier = Modifier.size(16.dp))
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Text("剪贴板导入", fontSize = 12.sp)
+                            }
+                            GlassActionButton(onClick = { showSubDialog = true }) {
+                                Icon(Icons.Rounded.AddLink, null, modifier = Modifier.size(16.dp))
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Text("添加订阅", fontSize = 12.sp)
+                            }
+                        }
+                    }
+                }
             }
         } else {
             LazyColumn(
@@ -423,11 +444,12 @@ fun NodesScreen(
                 contentPadding = PaddingValues(top = 6.dp, bottom = 126.dp),
                 verticalArrangement = Arrangement.spacedBy(10.dp)
             ) {
-                items(filteredNodes, key = { it.id }) { node ->
+                itemsIndexed(filteredNodes, key = { _, node -> node.id }) { idx, node ->
                     val isSelected = node.id == selectedNodeId
                     NodeItemCard(
                         node = node,
                         isSelected = isSelected,
+                        seedOffsetSec = idx * 0.45f,
                         onSelect = { onSelectNode(node.id) },
                         onMeasure = { onMeasureSingle(node.id) },
                         onEdit = {
@@ -513,36 +535,52 @@ fun NodesScreen(
     qrPreviewNode?.let { node ->
         val shareLink = remember(node) { onExportShareLink(node) }
         val qrBitmap = remember(shareLink) { QrCodeHelper.generateQrBitmap(shareLink) }
-        AlertDialog(
-            containerColor = Color(0xFF0E192A),
-            titleContentColor = ProtoTextPrimary,
-            textContentColor = ProtoTextPrimary,
+        GlassDialog(
             onDismissRequest = { qrPreviewNode = null },
-            title = { Text(node.name, maxLines = 1, overflow = TextOverflow.Ellipsis) },
-            text = {
-                Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.fillMaxWidth()) {
+            title = node.name,
+            content = {
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
                     if (qrBitmap != null) {
-                        Image(
-                            bitmap = qrBitmap.asImageBitmap(),
-                            contentDescription = "节点二维码",
+                        Box(
                             modifier = Modifier
-                                .size(220.dp)
-                                .clip(RoundedCornerShape(12.dp))
-                        )
+                                .clip(RoundedCornerShape(16.dp))
+                                .border(1.2.dp, Color(0xBD78D5FF), RoundedCornerShape(16.dp))
+                                .padding(6.dp)
+                        ) {
+                            Image(
+                                bitmap = qrBitmap.asImageBitmap(),
+                                contentDescription = "节点二维码",
+                                modifier = Modifier
+                                    .size(216.dp)
+                                    .clip(RoundedCornerShape(12.dp))
+                            )
+                        }
                     }
                     Spacer(modifier = Modifier.height(10.dp))
-                    Text(
-                        text = shareLink,
-                        style = MaterialTheme.typography.bodySmall,
-                        color = ProtoTextMuted,
-                        maxLines = 4,
-                        overflow = TextOverflow.Ellipsis
-                    )
+                    LiquidGlassCard(
+                        modifier = Modifier.fillMaxWidth(),
+                        cornerRadius = 14.dp,
+                        particleCount = 14
+                    ) {
+                        Text(
+                            text = shareLink,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = ProtoTextMuted,
+                            maxLines = 4,
+                            overflow = TextOverflow.Ellipsis,
+                            modifier = Modifier.padding(10.dp)
+                        )
+                    }
                 }
             },
-            confirmButton = {
-                Button(
-                    colors = prototypePrimaryButtonColors(),
+            buttons = {
+                GlassGhostButton(onClick = { qrPreviewNode = null }) {
+                    Text("关闭")
+                }
+                GlassActionButton(
                     onClick = {
                         onCopyText(shareLink, "已复制节点分享内容")
                         qrPreviewNode = null
@@ -550,25 +588,25 @@ fun NodesScreen(
                 ) {
                     Icon(Icons.Rounded.ContentCopy, null, modifier = Modifier.size(16.dp))
                     Spacer(modifier = Modifier.width(6.dp))
-                    Text("复制内容")
-                }
-            },
-            dismissButton = {
-                TextButton(onClick = { qrPreviewNode = null }) {
-                    Text("关闭", color = ProtoTextMuted)
+                    Text("复制内容", fontWeight = FontWeight.SemiBold)
                 }
             }
         )
     }
 }
 
+/**
+ * 节点顶栏 5 枚蓝色玻璃功能按钮：保持原尺寸 (36dp)、圆角 (12dp)、间距 (6dp) 与统一高饱和蓝色立体质感，内嵌流动蓝色粒子。
+ */
 @Composable
 private fun DockActionIconButton(
-    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    icon: ImageVector,
     contentDescription: String,
     enabled: Boolean = true,
+    seedOffsetSec: Float = 0f,
     onClick: () -> Unit
 ) {
+    val reduceMotion = rememberReduceMotionState()
     val shape = RoundedCornerShape(12.dp)
     val bgBrush = Brush.linearGradient(listOf(Color(0xCC1779E6), Color(0xE0074097)))
     Box(
@@ -581,49 +619,25 @@ private fun DockActionIconButton(
                 color = Color(0xD179D1FF),
                 shape = shape
             )
+            .alpha(if (enabled) 1f else 0.6f)
             .clickable(enabled = enabled, onClick = onClick),
         contentAlignment = Alignment.Center
     ) {
+        BlueConstellationParticlesCanvas(
+            particleCount = 12,
+            reduceMotion = reduceMotion,
+            referenceWidthDp = 120f,
+            linkMaxDistDp = 28f,
+            timeOffsetSec = seedOffsetSec,
+            intensity = 0.95f,
+            radiusScale = 0.72f,
+            modifier = Modifier.matchParentSize()
+        )
         Icon(
             imageVector = icon,
             contentDescription = contentDescription,
             tint = Color.White,
             modifier = Modifier.size(18.dp)
-        )
-    }
-}
-
-@Composable
-private fun GlassFilterPill(
-    label: String,
-    selected: Boolean,
-    onClick: () -> Unit
-) {
-    val shape = RoundedCornerShape(12.dp)
-    val bgBrush = if (selected) {
-        Brush.linearGradient(listOf(Color(0x9E1779E6), Color(0xC2074097)))
-    } else {
-        Brush.linearGradient(listOf(Color(0xF0233043), Color(0xFA111A29)))
-    }
-    Box(
-        modifier = Modifier
-            .clip(shape)
-            .background(bgBrush, shape)
-            .border(
-                width = 1.dp,
-                color = if (selected) Color(0xD179D1FF) else Color(0x52709ACA),
-                shape = shape
-            )
-            .clickable(onClick = onClick)
-            .padding(horizontal = 12.dp, vertical = 7.dp),
-        contentAlignment = Alignment.Center
-    ) {
-        Text(
-            text = label,
-            fontSize = 12.sp,
-            fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Medium,
-            color = if (selected) Color.White else Color(0xFFC0D4EA),
-            maxLines = 1
         )
     }
 }
@@ -639,7 +653,9 @@ private fun SubscriptionInfoBanner(
             .fillMaxWidth()
             .padding(vertical = 6.dp),
         cornerRadius = 18.dp,
-        elevated = true
+        elevated = true,
+        particleCount = 20,
+        seedOffsetSec = 1.5f
     ) {
         Row(
             modifier = Modifier
@@ -672,13 +688,17 @@ private fun SubscriptionInfoBanner(
                     )
                 }
             }
-            Row {
-                IconButton(onClick = onRefresh) {
-                    Icon(Icons.Rounded.Refresh, contentDescription = "刷新订阅", tint = Color(0xFFB7D4F2))
-                }
-                IconButton(onClick = onDelete) {
-                    Icon(Icons.Rounded.Delete, contentDescription = "删除订阅", tint = Color(0xFFB7D4F2))
-                }
+            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                GlassSmallIconButton(
+                    icon = Icons.Rounded.Refresh,
+                    contentDescription = "刷新订阅",
+                    onClick = onRefresh
+                )
+                GlassSmallIconButton(
+                    icon = Icons.Rounded.Delete,
+                    contentDescription = "删除订阅",
+                    onClick = onDelete
+                )
             }
         }
     }
@@ -688,6 +708,7 @@ private fun SubscriptionInfoBanner(
 private fun NodeItemCard(
     node: ServerNode,
     isSelected: Boolean,
+    seedOffsetSec: Float,
     onSelect: () -> Unit,
     onMeasure: () -> Unit,
     onEdit: () -> Unit,
@@ -698,7 +719,10 @@ private fun NodeItemCard(
         modifier = Modifier.fillMaxWidth(),
         cornerRadius = 21.dp,
         elevated = isSelected,
+        isActive = isSelected,
         accentBorder = if (isSelected) Color(0xE646B5FF) else null,
+        particleCount = 22,
+        seedOffsetSec = seedOffsetSec,
         onClick = onSelect
     ) {
         Row(
@@ -709,14 +733,15 @@ private fun NodeItemCard(
         ) {
             Box(
                 modifier = Modifier
-                    .size(21.dp)
+                    .size(22.dp)
                     .clip(CircleShape)
-                    .background(if (isSelected) Color(0xFF168BFF) else Color(0xDB091A30))
-                    .border(
-                        width = 1.dp,
-                        color = if (isSelected) Color(0xFF78D8FF) else Color(0x9E6BA6E0),
-                        shape = CircleShape
-                    ),
+                    .drawBehind {
+                        drawGlassCapsule3D(
+                            cornerRadiusDp = 11.dp,
+                            active = isSelected,
+                            innerBevelInsetDp = 1.5.dp
+                        )
+                    },
                 contentAlignment = Alignment.Center
             ) {
                 if (isSelected) {
@@ -746,14 +771,19 @@ private fun NodeItemCard(
                     Box(
                         modifier = Modifier
                             .clip(RoundedCornerShape(8.dp))
-                            .background(Color(0x474574A4))
-                            .border(1.dp, Color(0x386BA3D7), RoundedCornerShape(8.dp))
+                            .drawBehind {
+                                drawGlassCapsule3D(
+                                    cornerRadiusDp = 8.dp,
+                                    active = false,
+                                    innerBevelInsetDp = 1.dp
+                                )
+                            }
                             .padding(horizontal = 6.dp, vertical = 2.dp)
                     ) {
                         Text(
                             text = node.badgeText(),
                             fontSize = 11.sp,
-                            color = Color(0xFFB6C6D9)
+                            color = Color(0xFFB6E1FF)
                         )
                     }
                     Text(
@@ -767,17 +797,36 @@ private fun NodeItemCard(
                     LatencyBadge(latencyMs = node.latencyMs)
                 }
             }
-            IconButton(onClick = onMeasure, modifier = Modifier.size(32.dp)) {
-                Icon(Icons.Rounded.Speed, contentDescription = "测速", tint = Color(0xFFB7D4F2), modifier = Modifier.size(17.dp))
-            }
-            IconButton(onClick = onShareQr, modifier = Modifier.size(32.dp)) {
-                Icon(Icons.Rounded.QrCode2, contentDescription = "分享 / 二维码", tint = Color(0xFFB7D4F2), modifier = Modifier.size(17.dp))
-            }
-            IconButton(onClick = onEdit, modifier = Modifier.size(32.dp)) {
-                Icon(Icons.Rounded.Edit, contentDescription = "编辑", tint = Color(0xFFB7D4F2), modifier = Modifier.size(17.dp))
-            }
-            IconButton(onClick = onDelete, modifier = Modifier.size(32.dp)) {
-                Icon(Icons.Rounded.Delete, contentDescription = "删除", tint = Color(0xFFB7D4F2), modifier = Modifier.size(17.dp))
+            Spacer(modifier = Modifier.width(6.dp))
+            Row(horizontalArrangement = Arrangement.spacedBy(5.dp)) {
+                GlassSmallIconButton(
+                    icon = Icons.Rounded.Speed,
+                    contentDescription = "测速",
+                    sizeDp = 30.dp,
+                    cornerRadius = 9.dp,
+                    onClick = onMeasure
+                )
+                GlassSmallIconButton(
+                    icon = Icons.Rounded.QrCode2,
+                    contentDescription = "分享 / 二维码",
+                    sizeDp = 30.dp,
+                    cornerRadius = 9.dp,
+                    onClick = onShareQr
+                )
+                GlassSmallIconButton(
+                    icon = Icons.Rounded.Edit,
+                    contentDescription = "编辑",
+                    sizeDp = 30.dp,
+                    cornerRadius = 9.dp,
+                    onClick = onEdit
+                )
+                GlassSmallIconButton(
+                    icon = Icons.Rounded.Delete,
+                    contentDescription = "删除",
+                    sizeDp = 30.dp,
+                    cornerRadius = 9.dp,
+                    onClick = onDelete
+                )
             }
         }
     }
@@ -792,53 +841,48 @@ private fun AddSubscriptionDialog(
     var url by remember { mutableStateOf("") }
     var autoUpdate by remember { mutableStateOf(true) }
 
-    AlertDialog(
-        containerColor = Color(0xFF0E192A),
-        titleContentColor = ProtoTextPrimary,
-        textContentColor = ProtoTextPrimary,
+    GlassDialog(
         onDismissRequest = onDismiss,
-        title = { Text("添加订阅链接") },
-        text = {
-            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                OutlinedTextField(
-                    value = name,
-                    onValueChange = { name = it },
-                    label = { Text("订阅备注（可选）") },
-                    singleLine = true,
-                    colors = prototypeTextFieldColors(),
-                    modifier = Modifier.fillMaxWidth()
-                )
-                OutlinedTextField(
-                    value = url,
-                    onValueChange = { url = it },
-                    label = { Text("订阅 URL (http/https)") },
-                    placeholder = { Text("https://example.com/sub?token=...") },
-                    minLines = 2,
-                    maxLines = 4,
-                    colors = prototypeTextFieldColors(),
-                    modifier = Modifier.fillMaxWidth()
-                )
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    modifier = Modifier.clickable { autoUpdate = !autoUpdate }
-                ) {
-                    Checkbox(checked = autoUpdate, onCheckedChange = { autoUpdate = it })
-                    Text("开启后台定时自动更新订阅", color = ProtoTextPrimary)
-                }
-            }
-        },
-        confirmButton = {
-            Button(
-                colors = prototypePrimaryButtonColors(),
-                onClick = { onConfirm(name, url, autoUpdate) },
-                enabled = url.trim().startsWith("http", ignoreCase = true)
+        title = "添加订阅链接",
+        content = {
+            GlassTextField(
+                value = name,
+                onValueChange = { name = it },
+                label = "订阅备注（可选）",
+                singleLine = true,
+                modifier = Modifier.fillMaxWidth()
+            )
+            GlassTextField(
+                value = url,
+                onValueChange = { url = it },
+                label = "订阅 URL (http/https)",
+                placeholder = "https://example.com/sub?token=...",
+                singleLine = false,
+                minLines = 2,
+                maxLines = 4,
+                modifier = Modifier.fillMaxWidth()
+            )
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable { autoUpdate = !autoUpdate }
+                    .padding(vertical = 4.dp)
             ) {
-                Text("拉取并保存")
+                GlassCheckbox(checked = autoUpdate, onCheckedChange = { autoUpdate = it })
+                Spacer(modifier = Modifier.width(10.dp))
+                Text("开启后台定时自动更新订阅", color = ProtoTextPrimary, fontSize = 13.sp)
             }
         },
-        dismissButton = {
-            TextButton(onClick = onDismiss) {
-                Text("取消", color = ProtoTextMuted)
+        buttons = {
+            GlassGhostButton(onClick = onDismiss) {
+                Text("取消")
+            }
+            GlassActionButton(
+                enabled = url.trim().startsWith("http", ignoreCase = true),
+                onClick = { onConfirm(name, url, autoUpdate) }
+            ) {
+                Text("拉取并保存", fontWeight = FontWeight.SemiBold)
             }
         }
     )

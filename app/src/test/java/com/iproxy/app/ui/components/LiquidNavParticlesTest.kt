@@ -33,7 +33,21 @@ class LiquidNavParticlesTest {
             DarkNavPalette.ParticleBlue,
             DarkNavPalette.ParticleCyan,
             DarkNavPalette.ParticleSky,
-            DarkNavPalette.LinkBlue
+            DarkNavPalette.ParticleCoreIce,
+            DarkNavPalette.LinkBlue,
+            DarkNavPalette.GlassActiveTop,
+            DarkNavPalette.GlassActiveMid,
+            DarkNavPalette.GlassActiveBottom,
+            DarkNavPalette.GlassIdleTop,
+            DarkNavPalette.GlassIdleMid,
+            DarkNavPalette.GlassIdleBottom,
+            DarkNavPalette.GlassRimActiveTop,
+            DarkNavPalette.GlassRimActiveBottom,
+            DarkNavPalette.GlassRimIdleTop,
+            DarkNavPalette.GlassRimIdleBottom,
+            DarkNavPalette.GlassInnerBevelActive,
+            DarkNavPalette.GlassInnerBevelIdle,
+            DarkNavPalette.GlassMeniscusTop
         )
 
         checkedColors.forEach { color ->
@@ -84,8 +98,8 @@ class LiquidNavParticlesTest {
     }
 
     @Test
-    fun `sub-canvases sample core 48 and mode 18 subsets cleanly`() {
-        for (subsetSize in listOf(18, 48)) {
+    fun `sub-canvases sample core 84, mode 20 and switch 12 subsets cleanly with offsets`() {
+        for (subsetSize in listOf(8, 12, 18, 20, 48, 84)) {
             val x = FloatArray(subsetSize)
             val y = FloatArray(subsetSize)
             val a = FloatArray(subsetSize)
@@ -95,7 +109,8 @@ class LiquidNavParticlesTest {
                 outNormY = y,
                 outAlpha = a,
                 particleCount = subsetSize,
-                xSpeedScale = 2.2f
+                xSpeedScale = 2.2f,
+                timeOffsetSec = 1.1f
             )
             for (i in 0 until subsetSize) {
                 assertTrue(x[i] in -0.09f..1.09f)

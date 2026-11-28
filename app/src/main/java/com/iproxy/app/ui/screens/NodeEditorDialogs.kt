@@ -24,20 +24,9 @@ import androidx.compose.material.icons.rounded.ArrowUpward
 import androidx.compose.material.icons.rounded.Check
 import androidx.compose.material.icons.rounded.Delete
 import androidx.compose.material.icons.rounded.UploadFile
-import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Button
-import androidx.compose.material3.Checkbox
-import androidx.compose.material3.FilterChip
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.Surface
-import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateListOf
@@ -46,11 +35,12 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.google.gson.JsonParser
 import com.iproxy.app.data.model.PolicyStrategy
 import com.iproxy.app.data.model.ProtocolType
@@ -58,9 +48,22 @@ import com.iproxy.app.data.model.SecurityMode
 import com.iproxy.app.data.model.ServerNode
 import com.iproxy.app.data.model.Subscription
 import com.iproxy.app.data.model.TransportNetwork
+import com.iproxy.app.ui.components.GlassActionButton
+import com.iproxy.app.ui.components.GlassCheckbox
+import com.iproxy.app.ui.components.GlassDialog
+import com.iproxy.app.ui.components.GlassDivider
+import com.iproxy.app.ui.components.GlassGhostButton
+import com.iproxy.app.ui.components.GlassSecondaryButton
+import com.iproxy.app.ui.components.GlassSelectableChip
+import com.iproxy.app.ui.components.GlassSmallIconButton
+import com.iproxy.app.ui.components.GlassTextField
+import com.iproxy.app.ui.components.LiquidGlassCard
+import com.iproxy.app.ui.components.ProtoTextMuted
+import com.iproxy.app.ui.components.ProtoTextPrimary
+import com.iproxy.app.ui.components.PrototypeSwitch
 
 /**
- * 自定义 Xray 配置 / 自定义出站编辑器弹窗
+ * 自定义 Xray 配置 / 自定义出站编辑器弹窗（3D 蓝色玻璃容器与星链流动粒子）
  */
 @Composable
 fun CustomJsonEditorDialog(
@@ -100,21 +103,22 @@ fun CustomJsonEditorDialog(
         else -> "添加自定义配置"
     }
 
-    AlertDialog(
+    GlassDialog(
         onDismissRequest = onDismiss,
-        title = { Text(titleText) },
-        text = {
+        title = titleText,
+        content = {
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
+                    .heightIn(max = 460.dp)
                     .verticalScroll(rememberScrollState()),
                 verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                OutlinedTextField(
+                GlassTextField(
                     value = name,
                     onValueChange = { name = it },
-                    label = { Text("节点名称") },
-                    placeholder = { Text(if (isOutbound) "我的自定义出站" else "我的自定义配置") },
+                    label = "节点名称",
+                    placeholder = if (isOutbound) "我的自定义出站" else "我的自定义配置",
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth()
                 )
@@ -126,29 +130,29 @@ fun CustomJsonEditorDialog(
                         "粘贴完整 Xray JSON 配置文件（包含 outbounds / routing 等）。未声明 inbounds 时将自动补充本地入站。"
                     },
                     style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                    color = ProtoTextMuted
                 )
 
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    OutlinedButton(
+                    GlassSecondaryButton(
                         onClick = { jsonFileLauncher.launch(arrayOf("application/json", "text/*", "*/*")) },
                         modifier = Modifier.weight(1f)
                     ) {
                         Icon(Icons.Rounded.UploadFile, contentDescription = null, modifier = Modifier.size(16.dp))
                         Spacer(modifier = Modifier.width(6.dp))
-                        Text("导入 .json 文件")
+                        Text("导入 .json", fontSize = 12.sp)
                     }
-                    OutlinedButton(
+                    GlassSecondaryButton(
                         onClick = {
                             rawJson = if (isOutbound) SAMPLE_OUTBOUND_JSON else SAMPLE_FULL_CONFIG_JSON
                             fileLoadError = null
                         },
                         modifier = Modifier.weight(1f)
                     ) {
-                        Text("填入示例模板")
+                        Text("填入示例模板", fontSize = 12.sp)
                     }
                 }
 
@@ -156,17 +160,18 @@ fun CustomJsonEditorDialog(
                     Text(
                         text = fileLoadError.orEmpty(),
                         style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.error
+                        color = Color(0xFFF87171)
                     )
                 }
 
-                OutlinedTextField(
+                GlassTextField(
                     value = rawJson,
                     onValueChange = {
                         rawJson = it
                         fileLoadError = null
                     },
-                    label = { Text(if (isOutbound) "Outbound JSON" else "完整 Xray JSON") },
+                    label = if (isOutbound) "Outbound JSON" else "完整 Xray JSON",
+                    singleLine = false,
                     minLines = 7,
                     maxLines = 14,
                     isError = rawJson.isNotBlank() && validationError != null,
@@ -177,13 +182,14 @@ fun CustomJsonEditorDialog(
                     Text(
                         text = validationError,
                         style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.error
+                        color = Color(0xFFF87171)
                     )
                 }
             }
         },
-        confirmButton = {
-            Button(
+        buttons = {
+            GlassGhostButton(onClick = onDismiss) { Text("取消") }
+            GlassActionButton(
                 enabled = rawJson.isNotBlank() && validationError == null,
                 onClick = {
                     val targetProtocol = if (isOutbound) ProtocolType.CUSTOM_OUTBOUND else ProtocolType.CUSTOM_JSON
@@ -205,11 +211,8 @@ fun CustomJsonEditorDialog(
                     )
                 }
             ) {
-                Text("保存")
+                Text("保存", fontWeight = FontWeight.SemiBold)
             }
-        },
-        dismissButton = {
-            TextButton(onClick = onDismiss) { Text("取消") }
         }
     )
 }
@@ -245,21 +248,24 @@ fun PolicyGroupEditorDialog(
         }
     }
 
-    AlertDialog(
+    val isValid = name.isNotBlank() && (selectedChildIds.isNotEmpty() || policySubId.isNotBlank())
+
+    GlassDialog(
         onDismissRequest = onDismiss,
-        title = { Text(if (initial == null) "添加策略组" else "编辑策略组") },
-        text = {
+        title = if (initial == null) "添加策略组" else "编辑策略组",
+        content = {
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
+                    .heightIn(max = 460.dp)
                     .verticalScroll(rememberScrollState()),
                 verticalArrangement = Arrangement.spacedBy(10.dp)
             ) {
-                OutlinedTextField(
+                GlassTextField(
                     value = name,
                     onValueChange = { name = it },
-                    label = { Text("策略组名称") },
-                    placeholder = { Text("例如：香港自动优选") },
+                    label = "策略组名称",
+                    placeholder = "例如：香港自动优选",
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth()
                 )
@@ -267,22 +273,24 @@ fun PolicyGroupEditorDialog(
                 Text(
                     text = "调度策略",
                     style = MaterialTheme.typography.labelLarge,
-                    fontWeight = FontWeight.SemiBold
+                    fontWeight = FontWeight.SemiBold,
+                    color = ProtoTextPrimary
                 )
                 Row(
                     modifier = Modifier.horizontalScroll(rememberScrollState()),
                     horizontalArrangement = Arrangement.spacedBy(6.dp)
                 ) {
-                    PolicyStrategy.entries.forEach { s ->
-                        FilterChip(
+                    PolicyStrategy.entries.forEachIndexed { idx, s ->
+                        GlassSelectableChip(
+                            label = s.displayName,
                             selected = strategy == s,
-                            onClick = { strategy = s },
-                            label = { Text(s.displayName) }
+                            seedOffsetSec = idx * 0.6f,
+                            onClick = { strategy = s }
                         )
                     }
                 }
 
-                HorizontalDivider()
+                GlassDivider()
 
                 Row(
                     modifier = Modifier.fillMaxWidth(),
@@ -292,15 +300,16 @@ fun PolicyGroupEditorDialog(
                     Text(
                         text = "固定子节点 (${selectedChildIds.size})",
                         style = MaterialTheme.typography.labelLarge,
-                        fontWeight = FontWeight.SemiBold
+                        fontWeight = FontWeight.SemiBold,
+                        color = ProtoTextPrimary
                     )
-                    OutlinedButton(
+                    GlassSecondaryButton(
                         onClick = { showNodePicker = true },
                         enabled = eligibleNodes.isNotEmpty()
                     ) {
                         Icon(Icons.Rounded.Add, contentDescription = null, modifier = Modifier.size(16.dp))
                         Spacer(modifier = Modifier.width(4.dp))
-                        Text("选择节点")
+                        Text("选择节点", fontSize = 12.sp)
                     }
                 }
 
@@ -312,7 +321,7 @@ fun PolicyGroupEditorDialog(
                             "点击右侧「选择节点」将多个节点纳入策略组（故障转移模式下按列表顺序优先回退）"
                         },
                         style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                        color = ProtoTextMuted
                     )
                 } else {
                     OrderedChildNodesList(
@@ -323,40 +332,44 @@ fun PolicyGroupEditorDialog(
                 }
 
                 if (subscriptions.isNotEmpty()) {
-                    HorizontalDivider()
+                    GlassDivider()
                     Text(
                         text = "订阅动态纳入（可选）",
                         style = MaterialTheme.typography.labelLarge,
-                        fontWeight = FontWeight.SemiBold
+                        fontWeight = FontWeight.SemiBold,
+                        color = ProtoTextPrimary
                     )
                     Row(
                         modifier = Modifier.horizontalScroll(rememberScrollState()),
                         horizontalArrangement = Arrangement.spacedBy(6.dp)
                     ) {
-                        FilterChip(
+                        GlassSelectableChip(
+                            label = "不启用",
                             selected = policySubId.isBlank(),
-                            onClick = { policySubId = "" },
-                            label = { Text("不启用") }
+                            seedOffsetSec = 0.2f,
+                            onClick = { policySubId = "" }
                         )
-                        FilterChip(
+                        GlassSelectableChip(
+                            label = "全部节点",
                             selected = policySubId == "ALL",
-                            onClick = { policySubId = "ALL" },
-                            label = { Text("全部节点") }
+                            seedOffsetSec = 0.8f,
+                            onClick = { policySubId = "ALL" }
                         )
-                        subscriptions.forEach { sub ->
-                            FilterChip(
+                        subscriptions.forEachIndexed { idx, sub ->
+                            GlassSelectableChip(
+                                label = sub.name,
                                 selected = policySubId == sub.id,
-                                onClick = { policySubId = sub.id },
-                                label = { Text(sub.name) }
+                                seedOffsetSec = 1.4f + idx * 0.6f,
+                                onClick = { policySubId = sub.id }
                             )
                         }
                     }
                     if (policySubId.isNotBlank()) {
-                        OutlinedTextField(
+                        GlassTextField(
                             value = policyFilter,
                             onValueChange = { policyFilter = it },
-                            label = { Text("名称关键词过滤（可选）") },
-                            placeholder = { Text("例如：香港 / HK / IEPL") },
+                            label = "名称关键词过滤（可选）",
+                            placeholder = "例如：香港 / HK / IEPL",
                             singleLine = true,
                             modifier = Modifier.fillMaxWidth()
                         )
@@ -364,9 +377,9 @@ fun PolicyGroupEditorDialog(
                 }
             }
         },
-        confirmButton = {
-            val isValid = name.isNotBlank() && (selectedChildIds.isNotEmpty() || policySubId.isNotBlank())
-            Button(
+        buttons = {
+            GlassGhostButton(onClick = onDismiss) { Text("取消") }
+            GlassActionButton(
                 enabled = isValid,
                 onClick = {
                     val base = initial ?: ServerNode(
@@ -389,11 +402,8 @@ fun PolicyGroupEditorDialog(
                     )
                 }
             ) {
-                Text("保存")
+                Text("保存", fontWeight = FontWeight.SemiBold)
             }
-        },
-        dismissButton = {
-            TextButton(onClick = onDismiss) { Text("取消") }
         }
     )
 
@@ -443,21 +453,22 @@ fun ProxyChainEditorDialog(
         }
     }
 
-    AlertDialog(
+    GlassDialog(
         onDismissRequest = onDismiss,
-        title = { Text(if (initial == null) "添加链式代理" else "编辑链式代理") },
-        text = {
+        title = if (initial == null) "添加链式代理" else "编辑链式代理",
+        content = {
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
+                    .heightIn(max = 460.dp)
                     .verticalScroll(rememberScrollState()),
                 verticalArrangement = Arrangement.spacedBy(10.dp)
             ) {
-                OutlinedTextField(
+                GlassTextField(
                     value = name,
                     onValueChange = { name = it },
-                    label = { Text("链式代理名称") },
-                    placeholder = { Text("例如：国内中转 -> 香港落地") },
+                    label = "链式代理名称",
+                    placeholder = "例如：国内中转 -> 香港落地",
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth()
                 )
@@ -465,7 +476,7 @@ fun ProxyChainEditorDialog(
                 Text(
                     text = "流量将按自上而下顺序依次穿透：第 1 跳为本机直连的前置入口节点，最后一跳为最终落地出口节点。",
                     style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                    color = ProtoTextMuted
                 )
 
                 Row(
@@ -476,15 +487,16 @@ fun ProxyChainEditorDialog(
                     Text(
                         text = "代理链路 (${selectedHopIds.size} 跳)",
                         style = MaterialTheme.typography.labelLarge,
-                        fontWeight = FontWeight.SemiBold
+                        fontWeight = FontWeight.SemiBold,
+                        color = ProtoTextPrimary
                     )
-                    OutlinedButton(
+                    GlassSecondaryButton(
                         onClick = { showHopPicker = true },
                         enabled = eligibleNodes.isNotEmpty()
                     ) {
                         Icon(Icons.Rounded.Add, contentDescription = null, modifier = Modifier.size(16.dp))
                         Spacer(modifier = Modifier.width(4.dp))
-                        Text("添加一跳")
+                        Text("添加一跳", fontSize = 12.sp)
                     }
                 }
 
@@ -496,7 +508,7 @@ fun ProxyChainEditorDialog(
                             "请点击「添加一跳」按顺序添加前置入口节点与出口落地节点"
                         },
                         style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                        color = ProtoTextMuted
                     )
                 } else {
                     OrderedChildNodesList(
@@ -517,13 +529,14 @@ fun ProxyChainEditorDialog(
                     Text(
                         text = "提示：链式代理建议至少包含 2 跳（前置入口 -> 出口落地）。",
                         style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.primary
+                        color = Color(0xFF79D1FF)
                     )
                 }
             }
         },
-        confirmButton = {
-            Button(
+        buttons = {
+            GlassGhostButton(onClick = onDismiss) { Text("取消") }
+            GlassActionButton(
                 enabled = name.isNotBlank() && selectedHopIds.isNotEmpty(),
                 onClick = {
                     val base = initial ?: ServerNode(
@@ -543,11 +556,8 @@ fun ProxyChainEditorDialog(
                     )
                 }
             ) {
-                Text("保存")
+                Text("保存", fontWeight = FontWeight.SemiBold)
             }
-        },
-        dismissButton = {
-            TextButton(onClick = onDismiss) { Text("取消") }
         }
     )
 
@@ -567,7 +577,8 @@ fun ProxyChainEditorDialog(
 }
 
 /**
- * 通用协议节点编辑器（全面覆盖 VMess / VLESS / Shadowsocks / Trojan / Hysteria2 / WireGuard / MASQUE / SOCKS / HTTP）
+ * 通用协议节点编辑器（全面覆盖 VMess / VLESS / Shadowsocks / Trojan / Hysteria2 / WireGuard / MASQUE / SOCKS / HTTP）：
+ * 所有协议芯片、传输方式、安全模式、输入框、开关、复选框与保存按钮均统一升级为 3D 蓝色玻璃与流动粒子。
  */
 @Composable
 fun ProtocolNodeEditorDialog(
@@ -655,18 +666,22 @@ fun ProtocolNodeEditorDialog(
         ProtocolType.HTTP
     )
 
-    AlertDialog(
+    val validPort = portStr.toIntOrNull()?.takeIf { it in 1..65535 }
+        ?: defaultPortForProtocol(protocol)
+    val isValid = server.isNotBlank() && when (protocol) {
+        ProtocolType.WIREGUARD -> wgPrivateKey.isNotBlank() && wgPublicKey.isNotBlank()
+        ProtocolType.VLESS, ProtocolType.VMESS -> credential.isNotBlank()
+        else -> true
+    }
+
+    GlassDialog(
         onDismissRequest = onDismiss,
-        title = {
-            Text(
-                if (initialNode == null) "添加 [${protocol.displayName}]"
-                else "编辑 [${protocol.displayName}]"
-            )
-        },
-        text = {
+        title = if (initialNode == null) "添加 [${protocol.displayName}]" else "编辑 [${protocol.displayName}]",
+        content = {
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
+                    .heightIn(max = 460.dp)
                     .verticalScroll(rememberScrollState()),
                 verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
@@ -674,9 +689,11 @@ fun ProtocolNodeEditorDialog(
                     modifier = Modifier.horizontalScroll(rememberScrollState()),
                     horizontalArrangement = Arrangement.spacedBy(6.dp)
                 ) {
-                    selectableProtocols.forEach { p ->
-                        FilterChip(
+                    selectableProtocols.forEachIndexed { idx, p ->
+                        GlassSelectableChip(
+                            label = p.displayName,
                             selected = protocol == p,
+                            seedOffsetSec = idx * 0.45f,
                             onClick = {
                                 if (protocol != p) {
                                     val wasDefaultPort = portStr == defaultPortForProtocol(protocol).toString()
@@ -688,61 +705,60 @@ fun ProtocolNodeEditorDialog(
                                         security = SecurityMode.TLS
                                     }
                                 }
-                            },
-                            label = { Text(p.displayName) }
+                            }
                         )
                     }
                 }
 
-                OutlinedTextField(
+                GlassTextField(
                     value = name,
                     onValueChange = { name = it },
-                    label = { Text("节点备注名称（可选）") },
+                    label = "节点备注名称（可选）",
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth()
                 )
-                OutlinedTextField(
+                GlassTextField(
                     value = server,
                     onValueChange = { server = it },
-                    label = { Text("服务器地址 (域名或 IP)") },
+                    label = "服务器地址 (域名或 IP)",
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth()
                 )
-                OutlinedTextField(
+                GlassTextField(
                     value = portStr,
                     onValueChange = { portStr = it.filter { ch -> ch.isDigit() } },
-                    label = { Text("端口") },
+                    label = "端口",
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth()
                 )
 
                 when (protocol) {
                     ProtocolType.VLESS, ProtocolType.VMESS, ProtocolType.TROJAN -> {
-                        OutlinedTextField(
+                        GlassTextField(
                             value = credential,
                             onValueChange = { credential = it },
-                            label = { Text(if (protocol == ProtocolType.TROJAN) "密码" else "UUID") },
+                            label = if (protocol == ProtocolType.TROJAN) "密码" else "UUID",
                             singleLine = true,
                             modifier = Modifier.fillMaxWidth()
                         )
                         if (protocol == ProtocolType.VLESS) {
-                            OutlinedTextField(
+                            GlassTextField(
                                 value = flow,
                                 onValueChange = { flow = it },
-                                label = { Text("流控 Flow（可选，如 xtls-rprx-vision）") },
+                                label = "流控 Flow（可选，如 xtls-rprx-vision）",
                                 singleLine = true,
                                 modifier = Modifier.fillMaxWidth()
                             )
                         } else if (protocol == ProtocolType.VMESS) {
-                            OutlinedTextField(
+                            GlassTextField(
                                 value = method,
                                 onValueChange = { method = it },
-                                label = { Text("加密方式 (auto / aes-128-gcm / chacha20-poly1305 / none)") },
+                                label = "加密方式 (auto / aes-128-gcm / chacha20-poly1305 / none)",
                                 singleLine = true,
                                 modifier = Modifier.fillMaxWidth()
                             )
                         }
-                        Text("传输协议 (network)", style = MaterialTheme.typography.labelMedium)
+                        Text("传输协议 (network)", style = MaterialTheme.typography.labelMedium, color = ProtoTextPrimary)
                         Row(
                             modifier = Modifier.horizontalScroll(rememberScrollState()),
                             horizontalArrangement = Arrangement.spacedBy(6.dp)
@@ -753,11 +769,12 @@ fun ProtocolNodeEditorDialog(
                                 TransportNetwork.HTTPUPGRADE,
                                 TransportNetwork.XHTTP,
                                 TransportNetwork.GRPC
-                            ).forEach { net ->
-                                FilterChip(
+                            ).forEachIndexed { idx, net ->
+                                GlassSelectableChip(
+                                    label = net.value.uppercase(),
                                     selected = network == net,
-                                    onClick = { network = net },
-                                    label = { Text(net.value.uppercase()) }
+                                    seedOffsetSec = idx * 0.55f,
+                                    onClick = { network = net }
                                 )
                             }
                         }
@@ -765,69 +782,70 @@ fun ProtocolNodeEditorDialog(
                             network == TransportNetwork.HTTPUPGRADE ||
                             network == TransportNetwork.XHTTP
                         ) {
-                            OutlinedTextField(
+                            GlassTextField(
                                 value = host,
                                 onValueChange = { host = it },
-                                label = { Text("伪装域名 Host（可选）") },
+                                label = "伪装域名 Host（可选）",
                                 singleLine = true,
                                 modifier = Modifier.fillMaxWidth()
                             )
-                            OutlinedTextField(
+                            GlassTextField(
                                 value = path,
                                 onValueChange = { path = it },
-                                label = { Text("路径 Path（如 /ws）") },
+                                label = "路径 Path（如 /ws）",
                                 singleLine = true,
                                 modifier = Modifier.fillMaxWidth()
                             )
                             if (network == TransportNetwork.XHTTP) {
-                                OutlinedTextField(
+                                GlassTextField(
                                     value = xhttpMode,
                                     onValueChange = { xhttpMode = it },
-                                    label = { Text("XHTTP 模式（auto / packet-up / stream-up / stream-one）") },
+                                    label = "XHTTP 模式（auto / packet-up / stream-up / stream-one）",
                                     singleLine = true,
                                     modifier = Modifier.fillMaxWidth()
                                 )
                             }
                         } else if (network == TransportNetwork.GRPC) {
-                            OutlinedTextField(
+                            GlassTextField(
                                 value = grpcServiceName,
                                 onValueChange = { grpcServiceName = it },
-                                label = { Text("gRPC serviceName") },
+                                label = "gRPC serviceName",
                                 singleLine = true,
                                 modifier = Modifier.fillMaxWidth()
                             )
                         }
-                        Text("传输安全 (security)", style = MaterialTheme.typography.labelMedium)
+                        Text("传输安全 (security)", style = MaterialTheme.typography.labelMedium, color = ProtoTextPrimary)
                         Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                            SecurityMode.entries.forEach { sec ->
-                                FilterChip(
+                            SecurityMode.entries.forEachIndexed { idx, sec ->
+                                GlassSelectableChip(
+                                    label = sec.value.uppercase(),
                                     selected = security == sec,
-                                    onClick = { security = sec },
-                                    label = { Text(sec.value.uppercase()) }
+                                    seedOffsetSec = idx * 0.65f,
+                                    onClick = { security = sec }
                                 )
                             }
                         }
                         if (security != SecurityMode.NONE) {
-                            OutlinedTextField(
+                            GlassTextField(
                                 value = sni,
                                 onValueChange = { sni = it },
-                                label = { Text("SNI / ServerName（可选）") },
+                                label = "SNI / ServerName（可选）",
                                 singleLine = true,
                                 modifier = Modifier.fillMaxWidth()
                             )
-                            OutlinedTextField(
+                            GlassTextField(
                                 value = fingerprint,
                                 onValueChange = { fingerprint = it },
-                                label = { Text("uTLS 指纹（可选，如 chrome / ios）") },
+                                label = "uTLS 指纹（可选，如 chrome / ios）",
                                 singleLine = true,
                                 modifier = Modifier.fillMaxWidth()
                             )
                         }
                         if (security == SecurityMode.TLS) {
-                            OutlinedTextField(
+                            GlassTextField(
                                 value = alpn,
                                 onValueChange = { alpn = it },
-                                label = { Text("ALPN（可选，如 h2,http/1.1）") },
+                                label = "ALPN（可选，如 h2,http/1.1）",
                                 singleLine = true,
                                 modifier = Modifier.fillMaxWidth()
                             )
@@ -836,24 +854,24 @@ fun ProtocolNodeEditorDialog(
                                 onCheckedChange = { allowInsecure = it }
                             )
                         } else if (security == SecurityMode.REALITY) {
-                            OutlinedTextField(
+                            GlassTextField(
                                 value = realityPbk,
                                 onValueChange = { realityPbk = it },
-                                label = { Text("Reality PublicKey (pbk)") },
+                                label = "Reality PublicKey (pbk)",
                                 singleLine = true,
                                 modifier = Modifier.fillMaxWidth()
                             )
-                            OutlinedTextField(
+                            GlassTextField(
                                 value = realitySid,
                                 onValueChange = { realitySid = it },
-                                label = { Text("Reality ShortId (sid)") },
+                                label = "Reality ShortId (sid)",
                                 singleLine = true,
                                 modifier = Modifier.fillMaxWidth()
                             )
-                            OutlinedTextField(
+                            GlassTextField(
                                 value = realitySpx,
                                 onValueChange = { realitySpx = it },
-                                label = { Text("Reality SpiderX（可选）") },
+                                label = "Reality SpiderX（可选）",
                                 singleLine = true,
                                 modifier = Modifier.fillMaxWidth()
                             )
@@ -861,10 +879,10 @@ fun ProtocolNodeEditorDialog(
                     }
 
                     ProtocolType.SHADOWSOCKS -> {
-                        OutlinedTextField(
+                        GlassTextField(
                             value = method,
                             onValueChange = { method = it },
-                            label = { Text("加密方式 (如 aes-256-gcm / 2022-blake3-aes-128-gcm)") },
+                            label = "加密方式 (如 aes-256-gcm / 2022-blake3-aes-128-gcm)",
                             singleLine = true,
                             modifier = Modifier.fillMaxWidth()
                         )
@@ -877,72 +895,73 @@ fun ProtocolNodeEditorDialog(
                                 "aes-256-gcm",
                                 "chacha20-ietf-poly1305",
                                 "2022-blake3-aes-128-gcm"
-                            ).forEach { cipher ->
-                                FilterChip(
+                            ).forEachIndexed { idx, cipher ->
+                                GlassSelectableChip(
+                                    label = cipher,
                                     selected = method == cipher,
-                                    onClick = { method = cipher },
-                                    label = { Text(cipher) }
+                                    seedOffsetSec = idx * 0.5f,
+                                    onClick = { method = cipher }
                                 )
                             }
                         }
-                        OutlinedTextField(
+                        GlassTextField(
                             value = credential,
                             onValueChange = { credential = it },
-                            label = { Text("密码") },
+                            label = "密码",
                             singleLine = true,
                             modifier = Modifier.fillMaxWidth()
                         )
                     }
 
                     ProtocolType.HYSTERIA2 -> {
-                        OutlinedTextField(
+                        GlassTextField(
                             value = credential,
                             onValueChange = { credential = it },
-                            label = { Text("认证密码 (auth)") },
+                            label = "认证密码 (auth)",
                             singleLine = true,
                             modifier = Modifier.fillMaxWidth()
                         )
-                        OutlinedTextField(
+                        GlassTextField(
                             value = sni,
                             onValueChange = { sni = it },
-                            label = { Text("SNI / 伪装域名（可选）") },
+                            label = "SNI / 伪装域名（可选）",
                             singleLine = true,
                             modifier = Modifier.fillMaxWidth()
                         )
-                        OutlinedTextField(
+                        GlassTextField(
                             value = hy2ObfsPass,
                             onValueChange = { hy2ObfsPass = it },
-                            label = { Text("Salamander 混淆密码（可选）") },
+                            label = "Salamander 混淆密码（可选）",
                             singleLine = true,
                             modifier = Modifier.fillMaxWidth()
                         )
-                        OutlinedTextField(
+                        GlassTextField(
                             value = hy2PortHopping,
                             onValueChange = { hy2PortHopping = it },
-                            label = { Text("端口跳跃范围 mport（可选，如 20000-30000）") },
+                            label = "端口跳跃范围 mport（可选，如 20000-30000）",
                             singleLine = true,
                             modifier = Modifier.fillMaxWidth()
                         )
                         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            OutlinedTextField(
+                            GlassTextField(
                                 value = hy2UpStr,
                                 onValueChange = { hy2UpStr = it.filter(Char::isDigit) },
-                                label = { Text("上行 Mbps") },
+                                label = "上行 Mbps",
                                 singleLine = true,
                                 modifier = Modifier.weight(1f)
                             )
-                            OutlinedTextField(
+                            GlassTextField(
                                 value = hy2DownStr,
                                 onValueChange = { hy2DownStr = it.filter(Char::isDigit) },
-                                label = { Text("下行 Mbps") },
+                                label = "下行 Mbps",
                                 singleLine = true,
                                 modifier = Modifier.weight(1f)
                             )
                         }
-                        OutlinedTextField(
+                        GlassTextField(
                             value = pinSha256,
                             onValueChange = { pinSha256 = it },
-                            label = { Text("证书指纹 PinSHA256（可选）") },
+                            label = "证书指纹 PinSHA256（可选）",
                             singleLine = true,
                             modifier = Modifier.fillMaxWidth()
                         )
@@ -953,46 +972,46 @@ fun ProtocolNodeEditorDialog(
                     }
 
                     ProtocolType.WIREGUARD -> {
-                        OutlinedTextField(
+                        GlassTextField(
                             value = wgPrivateKey,
                             onValueChange = { wgPrivateKey = it },
-                            label = { Text("本机私钥 PrivateKey (Base64)") },
+                            label = "本机私钥 PrivateKey (Base64)",
                             singleLine = true,
                             modifier = Modifier.fillMaxWidth()
                         )
-                        OutlinedTextField(
+                        GlassTextField(
                             value = wgPublicKey,
                             onValueChange = { wgPublicKey = it },
-                            label = { Text("对端公钥 Peer PublicKey (Base64)") },
+                            label = "对端公钥 Peer PublicKey (Base64)",
                             singleLine = true,
                             modifier = Modifier.fillMaxWidth()
                         )
-                        OutlinedTextField(
+                        GlassTextField(
                             value = wgPresharedKey,
                             onValueChange = { wgPresharedKey = it },
-                            label = { Text("预共享密钥 PreSharedKey（可选）") },
+                            label = "预共享密钥 PreSharedKey（可选）",
                             singleLine = true,
                             modifier = Modifier.fillMaxWidth()
                         )
-                        OutlinedTextField(
+                        GlassTextField(
                             value = wgLocalAddress,
                             onValueChange = { wgLocalAddress = it },
-                            label = { Text("本地接口地址 CIDR（如 10.0.0.2/32）") },
+                            label = "本地接口地址 CIDR（如 10.0.0.2/32）",
                             singleLine = true,
                             modifier = Modifier.fillMaxWidth()
                         )
                         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            OutlinedTextField(
+                            GlassTextField(
                                 value = wgMtuStr,
                                 onValueChange = { wgMtuStr = it.filter(Char::isDigit) },
-                                label = { Text("MTU") },
+                                label = "MTU",
                                 singleLine = true,
                                 modifier = Modifier.weight(1f)
                             )
-                            OutlinedTextField(
+                            GlassTextField(
                                 value = wgReserved,
                                 onValueChange = { wgReserved = it },
-                                label = { Text("Reserved（可选 0,0,0）") },
+                                label = "Reserved（可选 0,0,0）",
                                 singleLine = true,
                                 modifier = Modifier.weight(1f)
                             )
@@ -1000,96 +1019,98 @@ fun ProtocolNodeEditorDialog(
                     }
 
                     ProtocolType.MASQUE -> {
-                        OutlinedTextField(
+                        GlassTextField(
                             value = sni,
                             onValueChange = { sni = it },
-                            label = { Text("SNI / 证书域名（如 consumer-masque.cloudflareclient.com）") },
+                            label = "SNI / 证书域名（如 consumer-masque.cloudflareclient.com）",
                             singleLine = true,
                             modifier = Modifier.fillMaxWidth()
                         )
-                        OutlinedTextField(
+                        GlassTextField(
                             value = host,
                             onValueChange = { host = it },
-                            label = { Text("Host 请求头（可选，如 cloudflareaccess.com）") },
+                            label = "Host 请求头（可选，如 cloudflareaccess.com）",
                             singleLine = true,
                             modifier = Modifier.fillMaxWidth()
                         )
-                        OutlinedTextField(
+                        GlassTextField(
                             value = masquePath,
                             onValueChange = { masquePath = it },
-                            label = { Text("Path（可选，默认 /.well-known/masque/ip/*/*/，WARP 用 /）") },
+                            label = "Path（可选，默认 /.well-known/masque/ip/*/*/，WARP 用 /）",
                             singleLine = true,
                             modifier = Modifier.fillMaxWidth()
                         )
-                        OutlinedTextField(
+                        GlassTextField(
                             value = masqueRemoteDns,
                             onValueChange = { masqueRemoteDns = it },
-                            label = { Text("远端 DNS IP（可选，逗号分隔）") },
+                            label = "远端 DNS IP（可选，逗号分隔）",
                             singleLine = true,
                             modifier = Modifier.fillMaxWidth()
                         )
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .clickable { useMasqueWarp = !useMasqueWarp },
+                                .clickable { useMasqueWarp = !useMasqueWarp }
+                                .padding(vertical = 4.dp),
                             verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.SpaceBetween
                         ) {
-                            Text("启用 WARP-over-MASQUE 密钥参数", style = MaterialTheme.typography.bodyMedium)
-                            Switch(checked = useMasqueWarp, onCheckedChange = { useMasqueWarp = it })
+                            Text("启用 WARP-over-MASQUE 密钥参数", style = MaterialTheme.typography.bodyMedium, color = ProtoTextPrimary)
+                            PrototypeSwitch(checked = useMasqueWarp, onCheckedChange = { useMasqueWarp = it })
                         }
                         if (useMasqueWarp) {
-                            OutlinedTextField(
+                            GlassTextField(
                                 value = masqueWarpPk,
                                 onValueChange = { masqueWarpPk = it },
-                                label = { Text("WARP PrivateKey (ECDSA P-256 Base64/PEM)") },
+                                label = "WARP PrivateKey (ECDSA P-256 Base64/PEM)",
                                 singleLine = true,
                                 modifier = Modifier.fillMaxWidth()
                             )
-                            OutlinedTextField(
+                            GlassTextField(
                                 value = masqueWarpPub,
                                 onValueChange = { masqueWarpPub = it },
-                                label = { Text("WARP PublicKey (ECDSA P-256 Base64/PEM)") },
+                                label = "WARP PublicKey (ECDSA P-256 Base64/PEM)",
                                 singleLine = true,
                                 modifier = Modifier.fillMaxWidth()
                             )
-                            OutlinedTextField(
+                            GlassTextField(
                                 value = masqueWarpAddr,
                                 onValueChange = { masqueWarpAddr = it },
-                                label = { Text("WARP 虚拟地址 CIDR（逗号分隔）") },
+                                label = "WARP 虚拟地址 CIDR（逗号分隔）",
                                 singleLine = true,
                                 modifier = Modifier.fillMaxWidth()
                             )
                         } else {
                             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                OutlinedTextField(
+                                GlassTextField(
                                     value = username,
                                     onValueChange = { username = it },
-                                    label = { Text("Basic 用户名（可选）") },
+                                    label = "Basic 用户名（可选）",
                                     singleLine = true,
                                     modifier = Modifier.weight(1f)
                                 )
-                                OutlinedTextField(
+                                GlassTextField(
                                     value = credential,
                                     onValueChange = { credential = it },
-                                    label = { Text("Basic 密码（可选）") },
+                                    label = "Basic 密码（可选）",
                                     singleLine = true,
                                     modifier = Modifier.weight(1f)
                                 )
                             }
-                            OutlinedTextField(
+                            GlassTextField(
                                 value = masqueHeaders,
                                 onValueChange = { masqueHeaders = it },
-                                label = { Text("自定义请求头（可选，每行 Key: Value）") },
+                                label = "自定义请求头（可选，每行 Key: Value）",
+                                singleLine = false,
                                 minLines = 2,
                                 maxLines = 4,
                                 modifier = Modifier.fillMaxWidth()
                             )
                         }
-                        OutlinedTextField(
+                        GlassTextField(
                             value = pinSha256,
                             onValueChange = { pinSha256 = it },
-                            label = { Text("证书指纹 PinSHA256（可选）") },
+                            label = "证书指纹 PinSHA256（可选）",
                             singleLine = true,
                             modifier = Modifier.fillMaxWidth()
                         )
@@ -1100,17 +1121,17 @@ fun ProtocolNodeEditorDialog(
                     }
 
                     ProtocolType.SOCKS, ProtocolType.HTTP -> {
-                        OutlinedTextField(
+                        GlassTextField(
                             value = username,
                             onValueChange = { username = it },
-                            label = { Text("用户名（可选）") },
+                            label = "用户名（可选）",
                             singleLine = true,
                             modifier = Modifier.fillMaxWidth()
                         )
-                        OutlinedTextField(
+                        GlassTextField(
                             value = credential,
                             onValueChange = { credential = it },
-                            label = { Text("密码（可选）") },
+                            label = "密码（可选）",
                             singleLine = true,
                             modifier = Modifier.fillMaxWidth()
                         )
@@ -1120,12 +1141,13 @@ fun ProtocolNodeEditorDialog(
                                     .fillMaxWidth()
                                     .clickable {
                                         security = if (security == SecurityMode.TLS) SecurityMode.NONE else SecurityMode.TLS
-                                    },
+                                    }
+                                    .padding(vertical = 4.dp),
                                 verticalAlignment = Alignment.CenterVertically,
                                 horizontalArrangement = Arrangement.SpaceBetween
                             ) {
-                                Text("启用 HTTPS (TLS)", style = MaterialTheme.typography.bodyMedium)
-                                Switch(
+                                Text("启用 HTTPS (TLS)", style = MaterialTheme.typography.bodyMedium, color = ProtoTextPrimary)
+                                PrototypeSwitch(
                                     checked = security == SecurityMode.TLS,
                                     onCheckedChange = {
                                         security = if (it) SecurityMode.TLS else SecurityMode.NONE
@@ -1133,10 +1155,10 @@ fun ProtocolNodeEditorDialog(
                                 )
                             }
                             if (security == SecurityMode.TLS) {
-                                OutlinedTextField(
+                                GlassTextField(
                                     value = sni,
                                     onValueChange = { sni = it },
-                                    label = { Text("SNI（可选）") },
+                                    label = "SNI（可选）",
                                     singleLine = true,
                                     modifier = Modifier.fillMaxWidth()
                                 )
@@ -1152,15 +1174,9 @@ fun ProtocolNodeEditorDialog(
                 }
             }
         },
-        confirmButton = {
-            val validPort = portStr.toIntOrNull()?.takeIf { it in 1..65535 }
-                ?: defaultPortForProtocol(protocol)
-            val isValid = server.isNotBlank() && when (protocol) {
-                ProtocolType.WIREGUARD -> wgPrivateKey.isNotBlank() && wgPublicKey.isNotBlank()
-                ProtocolType.VLESS, ProtocolType.VMESS -> credential.isNotBlank()
-                else -> true
-            }
-            Button(
+        buttons = {
+            GlassGhostButton(onClick = onDismiss) { Text("取消") }
+            GlassActionButton(
                 enabled = isValid,
                 onClick = {
                     val savedName = name.trim().ifBlank { "${server.trim()}:$validPort" }
@@ -1228,11 +1244,8 @@ fun ProtocolNodeEditorDialog(
                     )
                 }
             ) {
-                Text("保存")
+                Text("保存", fontWeight = FontWeight.SemiBold)
             }
-        },
-        dismissButton = {
-            TextButton(onClick = onDismiss) { Text("取消") }
         }
     )
 }
@@ -1245,11 +1258,13 @@ private fun InsecureCertToggleRow(
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .clickable { onCheckedChange(!checked) },
+            .clickable { onCheckedChange(!checked) }
+            .padding(vertical = 4.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Checkbox(checked = checked, onCheckedChange = onCheckedChange)
-        Text("允许不安全 TLS 证书 (allowInsecure)", style = MaterialTheme.typography.bodySmall)
+        GlassCheckbox(checked = checked, onCheckedChange = onCheckedChange)
+        Spacer(modifier = Modifier.width(10.dp))
+        Text("允许不安全 TLS 证书 (allowInsecure)", style = MaterialTheme.typography.bodySmall, color = ProtoTextPrimary)
     }
 }
 
@@ -1262,29 +1277,32 @@ private fun OrderedChildNodesList(
     Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
         childIds.forEachIndexed { idx, id ->
             val target = nodeMap[id]
-            Surface(
-                tonalElevation = 2.dp,
-                shape = MaterialTheme.shapes.small,
-                modifier = Modifier.fillMaxWidth()
+            LiquidGlassCard(
+                modifier = Modifier.fillMaxWidth(),
+                cornerRadius = 14.dp,
+                particleCount = 14,
+                seedOffsetSec = idx * 0.5f
             ) {
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(horizontal = 10.dp, vertical = 6.dp),
-                    verticalAlignment = Alignment.CenterVertically
+                        .padding(horizontal = 10.dp, vertical = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(4.dp)
                 ) {
                     Text(
                         text = labelPrefix(idx, childIds.size),
                         style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.primary,
+                        color = Color(0xFF7BE0FF),
                         fontWeight = FontWeight.Bold
                     )
-                    Spacer(modifier = Modifier.width(8.dp))
+                    Spacer(modifier = Modifier.width(4.dp))
                     Column(modifier = Modifier.weight(1f)) {
                         Text(
                             text = target?.name ?: "已失效节点 ($id)",
                             style = MaterialTheme.typography.bodySmall,
                             fontWeight = FontWeight.Medium,
+                            color = ProtoTextPrimary,
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis
                         )
@@ -1292,41 +1310,44 @@ private fun OrderedChildNodesList(
                             Text(
                                 text = target.badgeText(),
                                 style = MaterialTheme.typography.labelSmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                color = ProtoTextMuted,
                                 maxLines = 1
                             )
                         }
                     }
-                    IconButton(
+                    GlassSmallIconButton(
+                        icon = Icons.Rounded.ArrowUpward,
+                        contentDescription = "上移",
+                        enabled = idx > 0,
+                        sizeDp = 28.dp,
+                        cornerRadius = 8.dp,
                         onClick = {
                             if (idx > 0) {
                                 val item = childIds.removeAt(idx)
                                 childIds.add(idx - 1, item)
                             }
-                        },
-                        enabled = idx > 0,
-                        modifier = Modifier.size(30.dp)
-                    ) {
-                        Icon(Icons.Rounded.ArrowUpward, contentDescription = "上移", modifier = Modifier.size(16.dp))
-                    }
-                    IconButton(
+                        }
+                    )
+                    GlassSmallIconButton(
+                        icon = Icons.Rounded.ArrowDownward,
+                        contentDescription = "下移",
+                        enabled = idx < childIds.lastIndex,
+                        sizeDp = 28.dp,
+                        cornerRadius = 8.dp,
                         onClick = {
                             if (idx < childIds.lastIndex) {
                                 val item = childIds.removeAt(idx)
                                 childIds.add(idx + 1, item)
                             }
-                        },
-                        enabled = idx < childIds.lastIndex,
-                        modifier = Modifier.size(30.dp)
-                    ) {
-                        Icon(Icons.Rounded.ArrowDownward, contentDescription = "下移", modifier = Modifier.size(16.dp))
-                    }
-                    IconButton(
-                        onClick = { childIds.removeAt(idx) },
-                        modifier = Modifier.size(30.dp)
-                    ) {
-                        Icon(Icons.Rounded.Delete, contentDescription = "移除", modifier = Modifier.size(16.dp))
-                    }
+                        }
+                    )
+                    GlassSmallIconButton(
+                        icon = Icons.Rounded.Delete,
+                        contentDescription = "移除",
+                        sizeDp = 28.dp,
+                        cornerRadius = 8.dp,
+                        onClick = { childIds.removeAt(idx) }
+                    )
                 }
             }
         }
@@ -1348,34 +1369,36 @@ private fun MultiNodePickerDialog(
         }
     }
 
-    AlertDialog(
+    GlassDialog(
         onDismissRequest = onDismiss,
-        title = { Text(title) },
-        text = {
+        title = title,
+        content = {
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
                     .heightIn(max = 360.dp)
                     .verticalScroll(rememberScrollState()),
-                verticalArrangement = Arrangement.spacedBy(6.dp)
+                verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                candidates.forEach { candidate ->
+                candidates.forEachIndexed { idx, candidate ->
                     val isChecked = !allowDuplicates && candidate.id in pickedOrder
-                    Surface(
-                        tonalElevation = if (isChecked) 3.dp else 1.dp,
-                        shape = MaterialTheme.shapes.small,
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clickable {
-                                if (allowDuplicates) {
+                    LiquidGlassCard(
+                        modifier = Modifier.fillMaxWidth(),
+                        cornerRadius = 15.dp,
+                        isActive = isChecked,
+                        accentBorder = if (isChecked) Color(0xCC46B5FF) else null,
+                        particleCount = 16,
+                        seedOffsetSec = idx * 0.45f,
+                        onClick = {
+                            if (allowDuplicates) {
+                                pickedOrder.add(candidate.id)
+                                onConfirm(pickedOrder.toList())
+                            } else {
+                                if (!pickedOrder.remove(candidate.id)) {
                                     pickedOrder.add(candidate.id)
-                                    onConfirm(pickedOrder.toList())
-                                } else {
-                                    if (!pickedOrder.remove(candidate.id)) {
-                                        pickedOrder.add(candidate.id)
-                                    }
                                 }
                             }
+                        }
                     ) {
                         Row(
                             modifier = Modifier
@@ -1384,7 +1407,7 @@ private fun MultiNodePickerDialog(
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             if (!allowDuplicates) {
-                                Checkbox(
+                                GlassCheckbox(
                                     checked = isChecked,
                                     onCheckedChange = { checked ->
                                         if (checked) {
@@ -1394,42 +1417,42 @@ private fun MultiNodePickerDialog(
                                         }
                                     }
                                 )
-                                Spacer(modifier = Modifier.width(6.dp))
+                                Spacer(modifier = Modifier.width(10.dp))
                             }
                             Column(modifier = Modifier.weight(1f)) {
                                 Text(
                                     text = candidate.name,
                                     style = MaterialTheme.typography.bodyMedium,
+                                    color = ProtoTextPrimary,
+                                    fontWeight = FontWeight.Medium,
                                     maxLines = 1,
                                     overflow = TextOverflow.Ellipsis
                                 )
                                 Text(
                                     text = "${candidate.badgeText()} · ${candidate.displayAddressSummary()}",
                                     style = MaterialTheme.typography.labelSmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    color = ProtoTextMuted,
                                     maxLines = 1,
                                     overflow = TextOverflow.Ellipsis
                                 )
                             }
                             if (allowDuplicates) {
-                                Icon(Icons.Rounded.Add, contentDescription = "添加", modifier = Modifier.size(18.dp))
+                                Icon(Icons.Rounded.Add, contentDescription = "添加", tint = Color(0xFF79D1FF), modifier = Modifier.size(18.dp))
                             } else if (isChecked) {
-                                Icon(Icons.Rounded.Check, contentDescription = null, modifier = Modifier.size(18.dp))
+                                Icon(Icons.Rounded.Check, contentDescription = null, tint = Color(0xFF8BE5FF), modifier = Modifier.size(18.dp))
                             }
                         }
                     }
                 }
             }
         },
-        confirmButton = {
+        buttons = {
+            GlassGhostButton(onClick = onDismiss) { Text("关闭") }
             if (!allowDuplicates) {
-                Button(onClick = { onConfirm(pickedOrder.toList()) }) {
-                    Text("确定 (${pickedOrder.size})")
+                GlassActionButton(onClick = { onConfirm(pickedOrder.toList()) }) {
+                    Text("确定 (${pickedOrder.size})", fontWeight = FontWeight.SemiBold)
                 }
             }
-        },
-        dismissButton = {
-            TextButton(onClick = onDismiss) { Text("关闭") }
         }
     )
 }

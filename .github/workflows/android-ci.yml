@@ -106,7 +106,7 @@ jobs:
       - name: 执行 Lint 与编译 Debug 及 Release APK
         run: |
           set -o pipefail
-          if ! ./gradlew lintDebug assembleDebug assembleRelease --no-daemon --stacktrace 2>&1 | tee /tmp/gradle-build.log; then
+          if ! ./gradlew lint assembleDebug assembleRelease --no-daemon --stacktrace 2>&1 | tee /tmp/gradle-build.log; then
             grep -E '^(e: |FAILURE:|\* What went wrong:|Caused by:|.*FAILED)' /tmp/gradle-build.log | head -n 20 | while IFS= read -r line; do
               echo "::error::${line}"
             done

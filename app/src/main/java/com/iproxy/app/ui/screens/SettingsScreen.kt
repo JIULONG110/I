@@ -1,6 +1,5 @@
 package com.iproxy.app.ui.screens
 
-import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -21,16 +20,11 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.ChevronRight
 import androidx.compose.material.icons.rounded.SystemUpdate
-import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Button
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -39,6 +33,8 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -46,18 +42,24 @@ import androidx.compose.ui.unit.sp
 import com.iproxy.app.BuildConfig
 import com.iproxy.app.data.model.AppSettings
 import com.iproxy.app.ui.components.BlackBrandLogo
+import com.iproxy.app.ui.components.GlassActionButton
+import com.iproxy.app.ui.components.GlassDialog
+import com.iproxy.app.ui.components.GlassDivider
+import com.iproxy.app.ui.components.GlassGhostButton
+import com.iproxy.app.ui.components.GlassLoadingIndicator
+import com.iproxy.app.ui.components.GlassSecondaryButton
+import com.iproxy.app.ui.components.GlassTextField
 import com.iproxy.app.ui.components.LiquidGlassCard
 import com.iproxy.app.ui.components.ProtoTextMuted
 import com.iproxy.app.ui.components.ProtoTextPrimary
 import com.iproxy.app.ui.components.ProtoTextSubtle
 import com.iproxy.app.ui.components.PrototypeSwitch
-import com.iproxy.app.ui.components.prototypePrimaryButtonColors
-import com.iproxy.app.ui.components.prototypeTextFieldColors
+import com.iproxy.app.ui.components.drawGlassCapsule3D
 import kotlinx.coroutines.launch
 import libv2ray.Libv2ray
 
 /**
- * 设置页：固定暗黑深蓝玻璃设计，移除所有日间/夜间切换控件，保留核心网络参数、备份与版本检查
+ * 设置页：全面采用 3D 蓝色实体玻璃材质与持续流动蓝色星链粒子，开启/关闭状态均有动效且一目了然。
  */
 @Composable
 fun SettingsScreen(
@@ -105,8 +107,8 @@ fun SettingsScreen(
             modifier = Modifier.padding(start = 2.dp, bottom = 6.dp)
         )
 
-        // 1. 核心连接与协议开关（对齐原型 .setting-row 排版）
-        LiquidGlassCard(modifier = Modifier.fillMaxWidth(), cornerRadius = 24.dp) {
+        // 1. 核心连接与协议开关（每行开关在 ON/OFF 态均有实体玻璃与粒子流）
+        LiquidGlassCard(modifier = Modifier.fillMaxWidth(), cornerRadius = 24.dp, particleCount = 28, seedOffsetSec = 0.2f) {
             Column(modifier = Modifier.fillMaxWidth()) {
                 SettingToggleRow(
                     title = "断线后自动重连",
@@ -114,42 +116,42 @@ fun SettingsScreen(
                     checked = settings.autoReconnect,
                     onCheckedChange = { v -> onUpdateSettings { it.copy(autoReconnect = v) } }
                 )
-                SettingRowDivider()
+                GlassDivider()
                 SettingToggleRow(
                     title = "局域网共享代理",
                     subtitle = "监听 0.0.0.0:${settings.socksPort}/${settings.httpPort}，允许同 Wi-Fi 设备共享连接",
                     checked = settings.allowLanShare,
                     onCheckedChange = { v -> onUpdateSettings { it.copy(allowLanShare = v) } }
                 )
-                SettingRowDivider()
+                GlassDivider()
                 SettingToggleRow(
                     title = "仅本地代理模式（不开 VPN）",
                     subtitle = "仅开启本地 SOCKS5/HTTP 端口，适合配合其他系统代理使用",
                     checked = settings.proxyOnlyMode,
                     onCheckedChange = { v -> onUpdateSettings { it.copy(proxyOnlyMode = v) } }
                 )
-                SettingRowDivider()
+                GlassDivider()
                 SettingToggleRow(
                     title = "启用 IPv6 路由",
                     subtitle = "若当地网络和节点均支持 IPv6 可开启",
                     checked = settings.enableIpv6,
                     onCheckedChange = { v -> onUpdateSettings { it.copy(enableIpv6 = v) } }
                 )
-                SettingRowDivider()
+                GlassDivider()
                 SettingToggleRow(
                     title = "FakeDNS 加速",
                     subtitle = "减少 DNS 查询延迟，提升网页首包速度",
                     checked = settings.enableFakeDns,
                     onCheckedChange = { v -> onUpdateSettings { it.copy(enableFakeDns = v) } }
                 )
-                SettingRowDivider()
+                GlassDivider()
                 SettingToggleRow(
                     title = "Mux 多路复用",
                     subtitle = "合并并发 TCP 连接（不适用于 XTLS Vision 与 XHTTP）",
                     checked = settings.enableMux,
                     onCheckedChange = { v -> onUpdateSettings { it.copy(enableMux = v) } }
                 )
-                SettingRowDivider()
+                GlassDivider()
                 SettingToggleRow(
                     title = "TLS Fragment 分片防阻断",
                     subtitle = "将 TLS 握手分片发送以降低特定网络干扰",
@@ -160,63 +162,49 @@ fun SettingsScreen(
         }
 
         // 2. DNS 与本地端口
-        LiquidGlassCard(modifier = Modifier.fillMaxWidth(), cornerRadius = 24.dp) {
+        LiquidGlassCard(modifier = Modifier.fillMaxWidth(), cornerRadius = 24.dp, particleCount = 26, seedOffsetSec = 1.1f) {
             Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 Text("DNS 与本地端口", fontSize = 15.sp, fontWeight = FontWeight.Bold, color = ProtoTextPrimary)
 
-                OutlinedTextField(
+                GlassTextField(
                     value = remoteDns,
                     onValueChange = { remoteDns = it },
-                    label = { Text("境外代理 DNS (例如 1.1.1.1 或 8.8.8.8)") },
-                    singleLine = true,
-                    colors = prototypeTextFieldColors(),
+                    label = "境外代理 DNS (例如 1.1.1.1 或 8.8.8.8)",
                     modifier = Modifier.fillMaxWidth()
                 )
-                OutlinedTextField(
+                GlassTextField(
                     value = directDns,
                     onValueChange = { directDns = it },
-                    label = { Text("国内直连 DNS (例如 223.5.5.5)") },
-                    singleLine = true,
-                    colors = prototypeTextFieldColors(),
+                    label = "国内直连 DNS (例如 223.5.5.5)",
                     modifier = Modifier.fillMaxWidth()
                 )
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    OutlinedTextField(
+                    GlassTextField(
                         value = socksPortStr,
                         onValueChange = { socksPortStr = it.filter { c -> c.isDigit() } },
-                        label = { Text("SOCKS5") },
-                        singleLine = true,
-                        colors = prototypeTextFieldColors(),
+                        label = "SOCKS5",
                         modifier = Modifier.weight(1f)
                     )
-                    OutlinedTextField(
+                    GlassTextField(
                         value = httpPortStr,
                         onValueChange = { httpPortStr = it.filter { c -> c.isDigit() } },
-                        label = { Text("HTTP") },
-                        singleLine = true,
-                        colors = prototypeTextFieldColors(),
+                        label = "HTTP",
                         modifier = Modifier.weight(1f)
                     )
-                    OutlinedTextField(
+                    GlassTextField(
                         value = mtuStr,
                         onValueChange = { mtuStr = it.filter { c -> c.isDigit() } },
-                        label = { Text("MTU") },
-                        singleLine = true,
-                        colors = prototypeTextFieldColors(),
+                        label = "MTU",
                         modifier = Modifier.weight(1f)
                     )
                 }
-                OutlinedTextField(
+                GlassTextField(
                     value = speedUrl,
                     onValueChange = { speedUrl = it },
-                    label = { Text("真连接测速目标 URL") },
-                    singleLine = true,
-                    colors = prototypeTextFieldColors(),
+                    label = "真连接测速目标 URL",
                     modifier = Modifier.fillMaxWidth()
                 )
-                Button(
-                    colors = prototypePrimaryButtonColors(),
-                    shape = RoundedCornerShape(14.dp),
+                GlassActionButton(
                     onClick = {
                         onUpdateSettings {
                             it.copy(
@@ -232,13 +220,13 @@ fun SettingsScreen(
                     },
                     modifier = Modifier.fillMaxWidth()
                 ) {
-                    Text("保存网络参数")
+                    Text("保存网络参数", fontWeight = FontWeight.SemiBold)
                 }
             }
         }
 
-        // 3. 备份与工具操作行（对齐原型 .utility-button）
-        LiquidGlassCard(modifier = Modifier.fillMaxWidth(), cornerRadius = 24.dp) {
+        // 3. 备份与工具操作行
+        LiquidGlassCard(modifier = Modifier.fillMaxWidth(), cornerRadius = 24.dp, particleCount = 20, seedOffsetSec = 2.0f) {
             Column(modifier = Modifier.fillMaxWidth()) {
                 UtilityActionRow(
                     title = "导出全部节点与配置备份",
@@ -249,7 +237,7 @@ fun SettingsScreen(
                         }
                     }
                 )
-                SettingRowDivider()
+                GlassDivider()
                 UtilityActionRow(
                     title = "从备份 JSON 恢复配置",
                     onClick = { showImportBackupDialog = true }
@@ -258,7 +246,7 @@ fun SettingsScreen(
         }
 
         // 4. 关于与检查更新
-        LiquidGlassCard(modifier = Modifier.fillMaxWidth(), cornerRadius = 24.dp) {
+        LiquidGlassCard(modifier = Modifier.fillMaxWidth(), cornerRadius = 24.dp, particleCount = 24, seedOffsetSec = 2.8f) {
             Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     BlackBrandLogo(size = 44.dp)
@@ -278,19 +266,13 @@ fun SettingsScreen(
                     }
                 }
 
-                OutlinedButton(
+                GlassSecondaryButton(
                     onClick = onCheckUpdate,
                     enabled = !isCheckingUpdate,
-                    shape = RoundedCornerShape(14.dp),
-                    border = BorderStroke(1.dp, Color(0x8865ACF7)),
                     modifier = Modifier.fillMaxWidth()
                 ) {
                     if (isCheckingUpdate) {
-                        CircularProgressIndicator(
-                            strokeWidth = 2.dp,
-                            color = Color(0xFF53CAFF),
-                            modifier = Modifier.size(16.dp)
-                        )
+                        GlassLoadingIndicator(compact = true)
                     } else {
                         Icon(
                             Icons.Rounded.SystemUpdate,
@@ -302,6 +284,7 @@ fun SettingsScreen(
                     Spacer(modifier = Modifier.width(8.dp))
                     Text(
                         text = if (isCheckingUpdate) "正在检查版本更新..." else "检查软件更新",
+                        fontWeight = FontWeight.SemiBold,
                         color = ProtoTextPrimary
                     )
                 }
@@ -321,38 +304,32 @@ fun SettingsScreen(
 
     if (showImportBackupDialog) {
         var jsonInput by remember { mutableStateOf("") }
-        AlertDialog(
-            containerColor = Color(0xFF0E192A),
-            titleContentColor = ProtoTextPrimary,
-            textContentColor = ProtoTextPrimary,
+        GlassDialog(
             onDismissRequest = { showImportBackupDialog = false },
-            title = { Text("恢复备份 JSON") },
-            text = {
-                OutlinedTextField(
+            title = "恢复备份 JSON",
+            content = {
+                GlassTextField(
                     value = jsonInput,
                     onValueChange = { jsonInput = it },
-                    label = { Text("粘贴之前导出的备份 JSON") },
+                    label = "粘贴之前导出的备份 JSON",
+                    singleLine = false,
                     minLines = 5,
                     maxLines = 10,
-                    colors = prototypeTextFieldColors(),
                     modifier = Modifier.fillMaxWidth()
                 )
             },
-            confirmButton = {
-                Button(
-                    colors = prototypePrimaryButtonColors(),
+            buttons = {
+                GlassGhostButton(onClick = { showImportBackupDialog = false }) {
+                    Text("取消")
+                }
+                GlassActionButton(
                     enabled = jsonInput.trim().startsWith("{"),
                     onClick = {
                         onImportBackup(jsonInput.trim())
                         showImportBackupDialog = false
                     }
                 ) {
-                    Text("确认恢复")
-                }
-            },
-            dismissButton = {
-                TextButton(onClick = { showImportBackupDialog = false }) {
-                    Text("取消", color = ProtoTextMuted)
+                    Text("确认恢复", fontWeight = FontWeight.SemiBold)
                 }
             }
         )
@@ -393,25 +370,30 @@ private fun UtilityActionRow(
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .heightIn(min = 50.dp)
+            .heightIn(min = 52.dp)
             .clickable(onClick = onClick)
             .padding(horizontal = 15.dp),
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Text(title, fontSize = 14.sp, color = ProtoTextPrimary)
-        Text("›", fontSize = 20.sp, color = Color(0xFF7E9AB8))
+        Text(title, fontSize = 14.sp, color = ProtoTextPrimary, fontWeight = FontWeight.Medium)
+        Box(
+            modifier = Modifier
+                .size(26.dp)
+                .clip(RoundedCornerShape(9.dp))
+                .drawBehind {
+                    drawGlassCapsule3D(cornerRadiusDp = 9.dp, active = false, innerBevelInsetDp = 1.5.dp)
+                },
+            contentAlignment = Alignment.Center
+        ) {
+            Icon(
+                imageVector = Icons.Rounded.ChevronRight,
+                contentDescription = null,
+                tint = Color(0xFF9AD5FF),
+                modifier = Modifier.size(16.dp)
+            )
+        }
     }
-}
-
-@Composable
-private fun SettingRowDivider() {
-    Box(
-        modifier = Modifier
-            .fillMaxWidth()
-            .height(1.dp)
-            .background(Color(0x305D88B9))
-    )
 }
 
 private fun Int.takeIn(min: Int, max: Int): Int? = if (this in min..max) this else null

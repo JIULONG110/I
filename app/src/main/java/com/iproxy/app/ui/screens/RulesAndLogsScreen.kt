@@ -1,7 +1,5 @@
 package com.iproxy.app.ui.screens
 
-import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -19,6 +17,7 @@ import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
@@ -30,21 +29,9 @@ import androidx.compose.material.icons.rounded.CloudDownload
 import androidx.compose.material.icons.rounded.ContentCopy
 import androidx.compose.material.icons.rounded.DeleteSweep
 import androidx.compose.material.icons.rounded.Search
-import androidx.compose.material3.Button
-import androidx.compose.material3.Checkbox
-import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
-import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
-import androidx.compose.material3.TopAppBar
-import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -55,7 +42,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
@@ -66,21 +53,30 @@ import com.iproxy.app.data.model.LogEntry
 import com.iproxy.app.data.model.PerAppMode
 import com.iproxy.app.data.model.RoutingMode
 import com.iproxy.app.data.repository.InstalledAppInfo
+import com.iproxy.app.ui.components.BlueConstellationParticlesCanvas
+import com.iproxy.app.ui.components.GlassActionButton
+import com.iproxy.app.ui.components.GlassCheckbox
+import com.iproxy.app.ui.components.GlassEmptyStateCard
+import com.iproxy.app.ui.components.GlassLoadingBar
+import com.iproxy.app.ui.components.GlassLoadingIndicator
+import com.iproxy.app.ui.components.GlassSecondaryButton
+import com.iproxy.app.ui.components.GlassSelectableChip
+import com.iproxy.app.ui.components.GlassSmallIconButton
+import com.iproxy.app.ui.components.GlassTextField
 import com.iproxy.app.ui.components.LiquidGlassCard
 import com.iproxy.app.ui.components.ProtoTextMuted
 import com.iproxy.app.ui.components.ProtoTextPrimary
 import com.iproxy.app.ui.components.ProtoTextSecondary
-import com.iproxy.app.ui.components.ProtoTextSubtle
 import com.iproxy.app.ui.components.PrototypeRoutingModeCard
 import com.iproxy.app.ui.components.PrototypeSwitch
-import com.iproxy.app.ui.components.prototypePrimaryButtonColors
-import com.iproxy.app.ui.components.prototypeTextFieldColors
+import com.iproxy.app.ui.components.drawGlassCapsule3D
+import com.iproxy.app.ui.components.rememberReduceMotionState
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 
 /**
- * 分流规则、分应用代理与实时核心日志页面：保持与首页一致的暗黑蓝宝石材质及粒子选中动效
+ * 分流规则、分应用代理与实时核心日志页面：所有选项、开关、按钮、输入与日志容器均具 3D 蓝色实体玻璃与星链流光粒子。
  */
 @Composable
 fun RulesAndLogsScreen(
@@ -95,6 +91,7 @@ fun RulesAndLogsScreen(
     onClearLogs: () -> Unit
 ) {
     var selectedTab by remember { mutableIntStateOf(0) }
+    val reduceMotion = rememberReduceMotionState()
 
     Column(
         modifier = Modifier
@@ -120,47 +117,55 @@ fun RulesAndLogsScreen(
 
         Spacer(modifier = Modifier.height(12.dp))
 
-        // 暗黑玻璃分栏切换（分流规则 / 运行日志）
-        Row(
+        // 3D 玻璃分栏切换（选中与未选中均保持流动蓝色星链粒子）
+        Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .clip(RoundedCornerShape(16.dp))
-                .background(Color(0xD90A1422))
-                .border(1.dp, Color(0x55709ACA), RoundedCornerShape(16.dp))
-                .padding(4.dp),
-            horizontalArrangement = Arrangement.spacedBy(6.dp)
+                .clip(RoundedCornerShape(17.dp))
+                .drawBehind {
+                    drawGlassCapsule3D(cornerRadiusDp = 17.dp, active = false, innerBevelInsetDp = 2.dp)
+                }
+                .padding(5.dp)
         ) {
-            listOf("分流规则", "运行日志 (${logs.size})").forEachIndexed { index, title ->
-                val active = selectedTab == index
-                val pillShape = RoundedCornerShape(12.dp)
-                Box(
-                    modifier = Modifier
-                        .weight(1f)
-                        .clip(pillShape)
-                        .background(
-                            if (active) {
-                                Brush.linearGradient(listOf(Color(0x9E1779E6), Color(0xC2074097)))
-                            } else {
-                                Brush.linearGradient(listOf(Color.Transparent, Color.Transparent))
-                            },
-                            pillShape
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(6.dp)
+            ) {
+                listOf("分流规则", "运行日志 (${logs.size})").forEachIndexed { index, title ->
+                    val active = selectedTab == index
+                    val pillShape = RoundedCornerShape(13.dp)
+                    Box(
+                        modifier = Modifier
+                            .weight(1f)
+                            .clip(pillShape)
+                            .drawBehind {
+                                drawGlassCapsule3D(
+                                    cornerRadiusDp = 13.dp,
+                                    active = active,
+                                    innerBevelInsetDp = 2.dp
+                                )
+                            }
+                            .clickable { selectedTab = index },
+                        contentAlignment = Alignment.Center
+                    ) {
+                        BlueConstellationParticlesCanvas(
+                            particleCount = 20,
+                            reduceMotion = reduceMotion,
+                            referenceWidthDp = 280f,
+                            linkMaxDistDp = 42f,
+                            timeOffsetSec = index * 1.4f,
+                            intensity = if (active) 1.08f else 0.56f,
+                            modifier = Modifier.matchParentSize()
                         )
-                        .border(
-                            width = 1.dp,
-                            color = if (active) Color(0xBA79D1FF) else Color.Transparent,
-                            shape = pillShape
+                        Text(
+                            text = title,
+                            fontSize = 13.sp,
+                            fontWeight = if (active) FontWeight.Bold else FontWeight.Medium,
+                            color = if (active) Color.White else Color(0xFFA9C0D8),
+                            maxLines = 1,
+                            modifier = Modifier.padding(vertical = 9.dp)
                         )
-                        .clickable { selectedTab = index }
-                        .padding(vertical = 9.dp),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Text(
-                        text = title,
-                        fontSize = 13.sp,
-                        fontWeight = if (active) FontWeight.Bold else FontWeight.Medium,
-                        color = if (active) Color.White else Color(0xFF9FB2C9),
-                        maxLines = 1
-                    )
+                    }
                 }
             }
         }
@@ -215,21 +220,22 @@ private fun RulesConfigTab(
         verticalArrangement = Arrangement.spacedBy(10.dp)
     ) {
         if (isUpdatingGeo) {
-            LinearProgressIndicator(
-                color = Color(0xFF53CAFF),
-                trackColor = Color(0xFF142338),
-                modifier = Modifier.fillMaxWidth()
-            )
+            GlassLoadingBar(modifier = Modifier.fillMaxWidth())
         }
 
-        // 与首页一致的粒子分流卡
+        // 与首页一致的粒子分流卡（三枚按钮均流光）
         PrototypeRoutingModeCard(
             routingMode = settings.routingMode,
             onSelectMode = onSetRoutingMode
         )
 
         // 当前规则预览卡
-        LiquidGlassCard(modifier = Modifier.fillMaxWidth(), cornerRadius = 24.dp) {
+        LiquidGlassCard(
+            modifier = Modifier.fillMaxWidth(),
+            cornerRadius = 24.dp,
+            particleCount = 20,
+            seedOffsetSec = 0.7f
+        ) {
             Column(modifier = Modifier.padding(16.dp)) {
                 Text(
                     text = "当前规则预览",
@@ -248,7 +254,12 @@ private fun RulesConfigTab(
         }
 
         // 广告拦截 & Geo 数据库更新
-        LiquidGlassCard(modifier = Modifier.fillMaxWidth(), cornerRadius = 24.dp) {
+        LiquidGlassCard(
+            modifier = Modifier.fillMaxWidth(),
+            cornerRadius = 24.dp,
+            particleCount = 22,
+            seedOffsetSec = 1.4f
+        ) {
             Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 Row(
                     modifier = Modifier
@@ -275,25 +286,30 @@ private fun RulesConfigTab(
                     )
                 }
 
-                OutlinedButton(
+                GlassSecondaryButton(
                     onClick = onUpdateGeoDatabases,
                     enabled = !isUpdatingGeo,
-                    shape = RoundedCornerShape(14.dp),
-                    border = androidx.compose.foundation.BorderStroke(1.dp, Color(0x8865ACF7)),
                     modifier = Modifier.fillMaxWidth()
                 ) {
                     Icon(Icons.Rounded.CloudDownload, null, tint = Color(0xFFB6E9FF), modifier = Modifier.size(18.dp))
                     Spacer(modifier = Modifier.width(8.dp))
                     Text(
                         text = if (isUpdatingGeo) "正在下载最新规则库..." else "在线更新 GeoIP / GeoSite 规则库",
+                        fontWeight = FontWeight.SemiBold,
                         color = ProtoTextPrimary
                     )
                 }
             }
         }
 
-        // 分应用代理卡片
-        LiquidGlassCard(modifier = Modifier.fillMaxWidth(), cornerRadius = 24.dp) {
+        // 分应用代理卡片（分应用模式按钮均具流动粒子）
+        LiquidGlassCard(
+            modifier = Modifier.fillMaxWidth(),
+            cornerRadius = 24.dp,
+            isActive = settings.perAppMode != PerAppMode.DISABLED,
+            particleCount = 24,
+            seedOffsetSec = 2.1f
+        ) {
             Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Icon(Icons.Rounded.Apps, null, tint = Color(0xFF59BAFF))
@@ -308,87 +324,72 @@ private fun RulesConfigTab(
                     }
                 }
                 Row(horizontalArrangement = Arrangement.spacedBy(6.dp), modifier = Modifier.fillMaxWidth()) {
-                    PerAppMode.entries.forEach { mode ->
+                    PerAppMode.entries.forEachIndexed { idx, mode ->
                         val active = settings.perAppMode == mode
                         val label = when (mode) {
                             PerAppMode.DISABLED -> "关闭"
                             PerAppMode.BYPASS_SELECTED -> "绕过所选"
                             PerAppMode.ONLY_PROXY_SELECTED -> "仅代理所选"
                         }
-                        Box(
-                            modifier = Modifier
-                                .weight(1f)
-                                .clip(RoundedCornerShape(12.dp))
-                                .background(
-                                    if (active) Brush.linearGradient(listOf(Color(0x9E1779E6), Color(0xC2074097)))
-                                    else Brush.linearGradient(listOf(Color(0xF02D3848), Color(0xFA17202E)))
-                                )
-                                .border(
-                                    width = 1.dp,
-                                    color = if (active) Color(0xD179D1FF) else Color(0x527D91AD),
-                                    shape = RoundedCornerShape(12.dp)
-                                )
-                                .clickable { onUpdateSettings { it.copy(perAppMode = mode) } }
-                                .padding(vertical = 9.dp),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Text(
-                                text = label,
-                                fontSize = 12.sp,
-                                fontWeight = FontWeight.SemiBold,
-                                color = if (active) Color.White else Color(0xFFC0D4EA),
-                                maxLines = 1
-                            )
-                        }
+                        GlassSelectableChip(
+                            label = label,
+                            selected = active,
+                            seedOffsetSec = idx * 0.9f,
+                            horizontalPadding = 6.dp,
+                            verticalPadding = 9.dp,
+                            onClick = { onUpdateSettings { it.copy(perAppMode = mode) } },
+                            modifier = Modifier.weight(1f)
+                        )
                     }
                 }
                 if (settings.perAppMode != PerAppMode.DISABLED) {
-                    Button(
+                    GlassActionButton(
                         onClick = onOpenPerAppSelector,
-                        colors = prototypePrimaryButtonColors(),
-                        shape = RoundedCornerShape(14.dp),
                         modifier = Modifier.fillMaxWidth()
                     ) {
-                        Text("选择应用 (${settings.selectedAppPackages.size})")
+                        Text("选择应用 (${settings.selectedAppPackages.size})", fontWeight = FontWeight.SemiBold)
                     }
                 }
             }
         }
 
-        // 自定义域名/IP规则
-        LiquidGlassCard(modifier = Modifier.fillMaxWidth(), cornerRadius = 24.dp) {
+        // 自定义域名/IP 规则
+        LiquidGlassCard(
+            modifier = Modifier.fillMaxWidth(),
+            cornerRadius = 24.dp,
+            particleCount = 26,
+            seedOffsetSec = 2.7f
+        ) {
             Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 Text("自定义规则（每行一个域名或 IP/CIDR）", fontSize = 14.sp, fontWeight = FontWeight.Bold, color = ProtoTextPrimary)
-                OutlinedTextField(
+                GlassTextField(
                     value = proxyRules,
                     onValueChange = { proxyRules = it },
-                    label = { Text("强制走代理规则 (例如 openai.com, google.com)") },
+                    label = "强制走代理规则 (例如 openai.com, google.com)",
+                    singleLine = false,
                     minLines = 2,
                     maxLines = 4,
-                    colors = prototypeTextFieldColors(),
                     modifier = Modifier.fillMaxWidth()
                 )
-                OutlinedTextField(
+                GlassTextField(
                     value = directRules,
                     onValueChange = { directRules = it },
-                    label = { Text("强制直连规则 (例如 baidu.com, 192.168.0.0/16)") },
+                    label = "强制直连规则 (例如 baidu.com, 192.168.0.0/16)",
+                    singleLine = false,
                     minLines = 2,
                     maxLines = 4,
-                    colors = prototypeTextFieldColors(),
                     modifier = Modifier.fillMaxWidth()
                 )
-                OutlinedTextField(
+                GlassTextField(
                     value = blockRules,
                     onValueChange = { blockRules = it },
-                    label = { Text("屏蔽拦截规则") },
+                    label = "屏蔽拦截规则",
+                    singleLine = false,
                     minLines = 2,
                     maxLines = 4,
-                    colors = prototypeTextFieldColors(),
                     modifier = Modifier.fillMaxWidth()
                 )
-                Button(
-                    colors = prototypePrimaryButtonColors(),
-                    shape = RoundedCornerShape(14.dp),
+                GlassActionButton(
                     onClick = {
                         onUpdateSettings {
                             it.copy(
@@ -400,7 +401,7 @@ private fun RulesConfigTab(
                     },
                     modifier = Modifier.fillMaxWidth()
                 ) {
-                    Text("保存自定义规则")
+                    Text("保存自定义规则", fontWeight = FontWeight.SemiBold)
                 }
             }
         }
@@ -437,61 +438,54 @@ private fun LogsConsoleTab(
             verticalAlignment = Alignment.CenterVertically
         ) {
             Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                listOf("ALL", "INFO", "WARN", "ERROR").forEach { lvl ->
-                    val active = levelFilter == lvl
-                    Box(
-                        modifier = Modifier
-                            .clip(RoundedCornerShape(10.dp))
-                            .background(
-                                if (active) Color(0x9E1779E6) else Color(0xD91A283C)
-                            )
-                            .border(
-                                width = 1.dp,
-                                color = if (active) Color(0xBA79D1FF) else Color(0x47709ACA),
-                                shape = RoundedCornerShape(10.dp)
-                            )
-                            .clickable { levelFilter = lvl }
-                            .padding(horizontal = 10.dp, vertical = 6.dp)
-                    ) {
-                        Text(
-                            text = lvl,
-                            fontSize = 11.sp,
-                            fontWeight = FontWeight.SemiBold,
-                            color = if (active) Color.White else ProtoTextMuted
-                        )
-                    }
+                listOf("ALL", "INFO", "WARN", "ERROR").forEachIndexed { idx, lvl ->
+                    GlassSelectableChip(
+                        label = lvl,
+                        selected = levelFilter == lvl,
+                        cornerRadius = 10.dp,
+                        seedOffsetSec = idx * 0.7f,
+                        horizontalPadding = 10.dp,
+                        verticalPadding = 6.dp,
+                        onClick = { levelFilter = lvl }
+                    )
                 }
             }
-            Row {
-                IconButton(onClick = onCopyLogs) {
-                    Icon(Icons.Rounded.ContentCopy, contentDescription = "复制日志", tint = Color(0xFFB7D4F2))
-                }
-                IconButton(onClick = onClearLogs) {
-                    Icon(Icons.Rounded.DeleteSweep, contentDescription = "清空日志", tint = Color(0xFFB7D4F2))
-                }
+            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                GlassSmallIconButton(
+                    icon = Icons.Rounded.ContentCopy,
+                    contentDescription = "复制日志",
+                    onClick = onCopyLogs
+                )
+                GlassSmallIconButton(
+                    icon = Icons.Rounded.DeleteSweep,
+                    contentDescription = "清空日志",
+                    onClick = onClearLogs
+                )
             }
         }
 
-        Spacer(modifier = Modifier.height(6.dp))
+        Spacer(modifier = Modifier.height(8.dp))
 
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .clip(RoundedCornerShape(18.dp))
-                .background(Color(0xEA08101C))
-                .border(1.dp, Color(0x52709ACA), RoundedCornerShape(18.dp))
-                .padding(12.dp)
-        ) {
-            if (filteredLogs.isEmpty()) {
-                Text(
-                    text = "暂无运行日志，连接节点后将在此实时输出诊断信息...",
-                    color = ProtoTextSubtle,
-                    fontFamily = FontFamily.Monospace,
-                    fontSize = 12.sp
+        if (filteredLogs.isEmpty()) {
+            Box(
+                modifier = Modifier.fillMaxSize(),
+                contentAlignment = Alignment.Center
+            ) {
+                GlassEmptyStateCard(
+                    title = "暂无运行日志",
+                    subtitle = "连接节点后将在此实时输出 Xray 内核与 TUN 隧道诊断信息。"
                 )
-            } else {
+            }
+        } else {
+            LiquidGlassCard(
+                modifier = Modifier.fillMaxSize(),
+                cornerRadius = 20.dp,
+                particleCount = 26
+            ) {
                 LazyColumn(
-                    modifier = Modifier.fillMaxSize(),
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(12.dp),
                     verticalArrangement = Arrangement.spacedBy(4.dp)
                 ) {
                     items(filteredLogs.reversed()) { entry ->
@@ -515,9 +509,8 @@ private fun LogsConsoleTab(
 }
 
 /**
- * 分应用代理选择页
+ * 分应用代理选择页：完全剔除灰色 Material 控件，全量接入 3D 玻璃顶栏、搜索栏、系统应用开关芯片、玻璃复选框与玻璃加载动画
  */
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun PerAppSelectorScreen(
     apps: List<InstalledAppInfo>,
@@ -529,6 +522,7 @@ fun PerAppSelectorScreen(
 ) {
     var query by remember { mutableStateOf("") }
     var showSystemApps by remember { mutableStateOf(false) }
+    val reduceMotion = rememberReduceMotionState()
 
     LaunchedEffect(Unit) {
         onLoadApps()
@@ -543,89 +537,129 @@ fun PerAppSelectorScreen(
         }
     }
 
-    Scaffold(
-        containerColor = Color.Transparent,
-        contentColor = ProtoTextPrimary,
-        topBar = {
-            TopAppBar(
-                title = { Text("选择分应用代理 (${selectedPackages.size})", color = ProtoTextPrimary) },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = Color.Transparent,
-                    titleContentColor = ProtoTextPrimary,
-                    navigationIconContentColor = ProtoTextPrimary
-                ),
-                navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Rounded.ArrowBack, contentDescription = "返回")
-                    }
-                }
-            )
-        }
-    ) { padding ->
-        Column(
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .statusBarsPadding()
+            .navigationBarsPadding()
+    ) {
+        Box(
             modifier = Modifier
-                .fillMaxSize()
-                .padding(padding)
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 10.dp)
+                .clip(RoundedCornerShape(18.dp))
+                .drawBehind {
+                    drawGlassCapsule3D(cornerRadiusDp = 18.dp, active = false, elevated = true)
+                }
         ) {
+            BlueConstellationParticlesCanvas(
+                particleCount = 20,
+                reduceMotion = reduceMotion,
+                referenceWidthDp = 360f,
+                linkMaxDistDp = 40f,
+                intensity = 0.72f,
+                modifier = Modifier.matchParentSize()
+            )
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 8.dp),
+                    .padding(horizontal = 10.dp, vertical = 8.dp),
                 verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                horizontalArrangement = Arrangement.spacedBy(10.dp)
             ) {
-                OutlinedTextField(
-                    value = query,
-                    onValueChange = { query = it },
-                    placeholder = { Text("搜索应用名称或包名...") },
-                    leadingIcon = { Icon(Icons.Rounded.Search, null, tint = Color(0xFF79D1FF)) },
-                    singleLine = true,
-                    colors = prototypeTextFieldColors(),
-                    modifier = Modifier.weight(1f)
+                GlassSmallIconButton(
+                    icon = Icons.AutoMirrored.Rounded.ArrowBack,
+                    contentDescription = "返回",
+                    sizeDp = 36.dp,
+                    cornerRadius = 12.dp,
+                    onClick = onBack
                 )
-                FilterChip(
-                    selected = showSystemApps,
-                    onClick = { showSystemApps = !showSystemApps },
-                    label = { Text("系统应用") }
+                Text(
+                    text = "选择分应用代理 (${selectedPackages.size})",
+                    fontSize = 17.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = ProtoTextPrimary
                 )
             }
+        }
 
-            if (isLoading) {
-                Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                    CircularProgressIndicator(color = Color(0xFF53CAFF))
-                }
-            } else {
-                LazyColumn(
-                    contentPadding = PaddingValues(16.dp),
-                    verticalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    items(filtered, key = { it.packageName }) { app ->
-                        val checked = app.packageName in selectedPackages
-                        LiquidGlassCard(
-                            modifier = Modifier.fillMaxWidth(),
-                            cornerRadius = 16.dp,
-                            accentBorder = if (checked) Color(0xCC46B5FF) else null,
-                            onClick = { onTogglePackage(app.packageName) }
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 6.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            GlassTextField(
+                value = query,
+                onValueChange = { query = it },
+                placeholder = "搜索应用名称或包名...",
+                leadingIcon = Icons.Rounded.Search,
+                singleLine = true,
+                modifier = Modifier.weight(1f)
+            )
+            GlassSelectableChip(
+                label = "系统应用",
+                selected = showSystemApps,
+                onClick = { showSystemApps = !showSystemApps }
+            )
+        }
+
+        if (isLoading) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(horizontal = 24.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                GlassLoadingIndicator(label = "正在读取已安装应用列表...")
+            }
+        } else if (filtered.isEmpty()) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(horizontal = 24.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                GlassEmptyStateCard(
+                    title = "未找到匹配应用",
+                    subtitle = "可修改搜索词或切换上方「系统应用」显示开关。"
+                )
+            }
+        } else {
+            LazyColumn(
+                contentPadding = PaddingValues(16.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                itemsIndexed(filtered, key = { _, app -> app.packageName }) { idx, app ->
+                    val checked = app.packageName in selectedPackages
+                    LiquidGlassCard(
+                        modifier = Modifier.fillMaxWidth(),
+                        cornerRadius = 16.dp,
+                        isActive = checked,
+                        accentBorder = if (checked) Color(0xCC46B5FF) else null,
+                        particleCount = 16,
+                        seedOffsetSec = (idx % 12) * 0.4f,
+                        onClick = { onTogglePackage(app.packageName) }
+                    ) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(vertical = 10.dp, horizontal = 12.dp),
+                            verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Row(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(vertical = 8.dp, horizontal = 10.dp),
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Checkbox(
-                                    checked = checked,
-                                    onCheckedChange = { onTogglePackage(app.packageName) }
+                            GlassCheckbox(
+                                checked = checked,
+                                onCheckedChange = { onTogglePackage(app.packageName) }
+                            )
+                            Spacer(modifier = Modifier.width(12.dp))
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(app.label, fontWeight = FontWeight.Medium, color = ProtoTextPrimary)
+                                Text(
+                                    app.packageName,
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = ProtoTextMuted
                                 )
-                                Spacer(modifier = Modifier.width(8.dp))
-                                Column(modifier = Modifier.weight(1f)) {
-                                    Text(app.label, fontWeight = FontWeight.Medium, color = ProtoTextPrimary)
-                                    Text(
-                                        app.packageName,
-                                        style = MaterialTheme.typography.labelSmall,
-                                        color = ProtoTextMuted
-                                    )
-                                }
                             }
                         }
                     }

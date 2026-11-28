@@ -40,6 +40,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.platform.LocalContext
@@ -48,9 +49,12 @@ import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.iproxy.app.ui.components.AppUpdateDialog
+import com.iproxy.app.ui.components.BlueConstellationParticlesCanvas
 import com.iproxy.app.ui.components.LiquidBackdrop
 import com.iproxy.app.ui.components.LiquidBottomNavBar
 import com.iproxy.app.ui.components.SplashBrandOverlay
+import com.iproxy.app.ui.components.drawGlassCapsule3D
+import com.iproxy.app.ui.components.rememberReduceMotionState
 import com.iproxy.app.ui.screens.HomeScreen
 import com.iproxy.app.ui.screens.NodesScreen
 import com.iproxy.app.ui.screens.PerAppSelectorScreen
@@ -328,21 +332,37 @@ fun IProxyAppRoot(viewModel: MainViewModel = viewModel()) {
                                     .navigationBarsPadding()
                                     .padding(bottom = 98.dp, start = 20.dp, end = 20.dp)
                             ) { data ->
-                                val toastShape = RoundedCornerShape(18.dp)
+                                val reduceMotion = rememberReduceMotionState()
+                                val toastShape = RoundedCornerShape(20.dp)
                                 Box(
                                     modifier = Modifier
                                         .widthIn(max = 400.dp)
                                         .clip(toastShape)
-                                        .background(Color(0xF2081423), toastShape)
-                                        .border(1.dp, Color(0x736AB4F0), toastShape)
-                                        .padding(horizontal = 15.dp, vertical = 10.dp),
+                                        .drawBehind {
+                                            drawGlassCapsule3D(
+                                                cornerRadiusDp = 20.dp,
+                                                active = false,
+                                                elevated = true,
+                                                accentBorder = Color(0xA66EC3FF),
+                                                innerBevelInsetDp = 2.dp
+                                            )
+                                        },
                                     contentAlignment = Alignment.Center
                                 ) {
+                                    BlueConstellationParticlesCanvas(
+                                        particleCount = 18,
+                                        reduceMotion = reduceMotion,
+                                        referenceWidthDp = 340f,
+                                        linkMaxDistDp = 40f,
+                                        intensity = 0.80f,
+                                        modifier = Modifier.matchParentSize()
+                                    )
                                     Text(
                                         text = data.visuals.message,
                                         color = Color(0xFFE8F5FF),
                                         fontSize = 12.sp,
-                                        textAlign = TextAlign.Center
+                                        textAlign = TextAlign.Center,
+                                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 10.dp)
                                     )
                                 }
                             }

@@ -11,6 +11,7 @@ import android.content.pm.ServiceInfo
 import android.net.VpnService
 import android.os.Build
 import android.os.ParcelFileDescriptor
+import android.os.PowerManager
 import android.os.StrictMode
 import androidx.core.app.NotificationCompat
 import androidx.core.app.ServiceCompat
@@ -64,6 +65,7 @@ class IVpnService : VpnService(), CoreCallbackHandler {
     private var hevRunning = false
     private var statsJob: Job? = null
     private val transitionLock = AtomicBoolean(false)
+    private val notificationRenderer = VpnNotificationRenderer()
 
     override fun onCreate() {
         super.onCreate()
@@ -80,7 +82,9 @@ class IVpnService : VpnService(), CoreCallbackHandler {
                 return START_NOT_STICKY
             }
             ACTION_START, SERVICE_INTERFACE, null -> {
-                startForegroundWithNotification("正在连接...", "准备启动代理内核")
+                startForegroundWithNotification(
+                    VpnNotificationFormatter.formatConnecting(nodeName = null, proxyOnlyMode = false)
+                )
                 if (transitionLock.compareAndSet(false, true)) {
                     serviceScope.launch {
                         try {
@@ -181,7 +185,16 @@ class IVpnService : VpnService(), CoreCallbackHandler {
                     lastError = null
                 )
             )
-            updateNotification(node.name, "已连接 · ${node.badgeText()}")
+            updateNotification(
+                copy = VpnNotificationFormatter.formatConnected(
+                    nodeName = node.name,
+                    protocolBadge = node.badgeText(),
+                    uplinkBps = 0L,
+                    downlinkBps = 0L,
+                    proxyOnlyMode = settings.proxyOnlyMode
+                ),
+                elapsedAnimSec = 0f
+            )
             startTrafficStatsPolling(node, settings)
             IQuickTileService.requestTileSync(applicationContext)
         } catch (e: UnsatisfiedLinkError) {
@@ -398,39 +411,66 @@ class IVpnService : VpnService(), CoreCallbackHandler {
         statsJob = serviceScope.launch {
             var totalUp = 0L
             var totalDown = 0L
+            var deltaUp = 0L
+            var deltaDown = 0L
+            var elapsedAnimSec = 0f
+            var lastStatsPollMs = System.currentTimeMillis()
+            var pushedWhileScreenOff = false
+            val powerManager = getSystemService(PowerManager::class.java)
+
             while (isActive) {
-                delay(1000L)
+                val isScreenOn = runCatching { powerManager?.isInteractive ?: true }.getOrDefault(true)
+                val tickMs = if (isScreenOn) NOTIF_ANIM_INTERVAL_MS else NOTIF_IDLE_INTERVAL_MS
+                delay(tickMs)
+
                 val controller = coreController ?: break
-                val rawStats = runCatching { controller.queryAllOutboundTrafficStats() }.getOrNull().orEmpty()
-                var deltaUp = 0L
-                var deltaDown = 0L
-                if (rawStats.isNotEmpty()) {
-                    rawStats.split(';').forEach { segment ->
-                        val parts = segment.split(',')
-                        if (parts.size == 3) {
-                            val tag = parts[0]
-                            val dir = parts[1]
-                            val value = parts[2].toLongOrNull() ?: 0L
-                            if (tag == "proxy" || tag.startsWith("proxy-") || tag == "direct") {
-                                if (dir == "uplink") deltaUp += value
-                                if (dir == "downlink") deltaDown += value
+                val now = System.currentTimeMillis()
+                if (now - lastStatsPollMs >= STATS_POLL_INTERVAL_MS) {
+                    lastStatsPollMs = now
+                    val rawStats = runCatching { controller.queryAllOutboundTrafficStats() }.getOrNull().orEmpty()
+                    var sampleUp = 0L
+                    var sampleDown = 0L
+                    if (rawStats.isNotEmpty()) {
+                        rawStats.split(';').forEach { segment ->
+                            val parts = segment.split(',')
+                            if (parts.size == 3) {
+                                val tag = parts[0]
+                                val dir = parts[1]
+                                val value = parts[2].toLongOrNull() ?: 0L
+                                if (tag == "proxy" || tag.startsWith("proxy-") || tag == "direct") {
+                                    if (dir == "uplink") sampleUp += value
+                                    if (dir == "downlink") sampleDown += value
+                                }
                             }
                         }
                     }
-                }
-                totalUp += deltaUp
-                totalDown += deltaDown
+                    deltaUp = sampleUp
+                    deltaDown = sampleDown
+                    totalUp += deltaUp
+                    totalDown += deltaDown
 
-                updateState(
-                    _runtimeState.value.copy(
-                        uplinkSpeedBps = deltaUp,
-                        downlinkSpeedBps = deltaDown,
-                        totalUplinkBytes = totalUp,
-                        totalDownlinkBytes = totalDown
+                    updateState(
+                        _runtimeState.value.copy(
+                            uplinkSpeedBps = deltaUp,
+                            downlinkSpeedBps = deltaDown,
+                            totalUplinkBytes = totalUp,
+                            totalDownlinkBytes = totalDown
+                        )
                     )
-                )
-                val speedSummary = "↑ ${FormatUtils.formatSpeed(deltaUp)}  ↓ ${FormatUtils.formatSpeed(deltaDown)}"
-                updateNotification(node.name, "$speedSummary · ${if (settings.proxyOnlyMode) "纯代理" else "VPN"}")
+                }
+
+                elapsedAnimSec += (tickMs / 1000f) * NOTIF_ANIM_SPEED_MULTIPLIER
+                if (isScreenOn || !pushedWhileScreenOff) {
+                    pushedWhileScreenOff = !isScreenOn
+                    val copy = VpnNotificationFormatter.formatConnected(
+                        nodeName = node.name,
+                        protocolBadge = node.badgeText(),
+                        uplinkBps = deltaUp,
+                        downlinkBps = deltaDown,
+                        proxyOnlyMode = settings.proxyOnlyMode
+                    )
+                    updateNotification(copy, elapsedAnimSec = elapsedAnimSec)
+                }
             }
         }
     }
@@ -498,8 +538,11 @@ class IVpnService : VpnService(), CoreCallbackHandler {
         manager.createNotificationChannel(channel)
     }
 
-    private fun startForegroundWithNotification(title: String, text: String) {
-        val notification = buildNotification(title, text)
+    private fun startForegroundWithNotification(
+        copy: VpnNotificationCopy,
+        elapsedAnimSec: Float = 0f
+    ) {
+        val notification = buildNotification(copy, elapsedAnimSec)
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
             ServiceCompat.startForeground(
                 this,
@@ -512,16 +555,16 @@ class IVpnService : VpnService(), CoreCallbackHandler {
         }
     }
 
-    private fun updateNotification(title: String, text: String) {
+    private fun updateNotification(copy: VpnNotificationCopy, elapsedAnimSec: Float) {
         val manager = getSystemService(NotificationManager::class.java)
-        manager.notify(NOTIFICATION_ID, buildNotification(title, text))
+        manager.notify(NOTIFICATION_ID, buildNotification(copy, elapsedAnimSec))
     }
 
     private fun stopForegroundCompat() {
         ServiceCompat.stopForeground(this, ServiceCompat.STOP_FOREGROUND_REMOVE)
     }
 
-    private fun buildNotification(title: String, text: String): Notification {
+    private fun buildNotification(copy: VpnNotificationCopy, elapsedAnimSec: Float): Notification {
         val openIntent = PendingIntent.getActivity(
             this,
             0,
@@ -538,15 +581,32 @@ class IVpnService : VpnService(), CoreCallbackHandler {
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
 
-        return NotificationCompat.Builder(this, CHANNEL_ID)
+        val builder = NotificationCompat.Builder(this, CHANNEL_ID)
             .setSmallIcon(R.drawable.ic_stat_i)
-            .setContentTitle("I · $title")
-            .setContentText(text)
+            .setContentTitle(copy.expandedTitle)
+            .setContentText(copy.fallbackText)
             .setOngoing(true)
             .setOnlyAlertOnce(true)
+            .setSilent(true)
+            .setColor(0xFF071324.toInt())
+            .setColorized(true)
+            .setCategory(NotificationCompat.CATEGORY_SERVICE)
+            .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
             .setContentIntent(openIntent)
-            .addAction(0, "断开连接", stopIntent)
-            .build()
+
+        val customViewsBuilt = runCatching {
+            val compactRv = notificationRenderer.buildCompactRemoteViews(this, copy, elapsedAnimSec, stopIntent)
+            val expandedRv = notificationRenderer.buildExpandedRemoteViews(this, copy, elapsedAnimSec, stopIntent)
+            builder
+                .setCustomContentView(compactRv)
+                .setCustomBigContentView(expandedRv)
+        }.isSuccess
+
+        if (!customViewsBuilt) {
+            builder.addAction(0, copy.actionLabel, stopIntent)
+        }
+
+        return builder.build()
     }
     // endregion
 
@@ -558,6 +618,10 @@ class IVpnService : VpnService(), CoreCallbackHandler {
         private const val VPN_IPV6_CLIENT = "fd00::2"
         private const val SOCKS_PROBE_TIMEOUT_MS = 500
         private const val HEV_TASK_STACK_SIZE = 86016
+        private const val STATS_POLL_INTERVAL_MS = 1000L
+        private const val NOTIF_ANIM_INTERVAL_MS = 350L
+        private const val NOTIF_IDLE_INTERVAL_MS = 1000L
+        private const val NOTIF_ANIM_SPEED_MULTIPLIER = 1.25f
         private const val ABI_MISMATCH_ERROR = "当前安装包架构与设备不匹配，请改装 arm64-v8a 或 universal 版本"
 
         internal fun buildHevTunnelConfigYaml(settings: AppSettings): String {

@@ -38,4 +38,35 @@ class IVpnServiceConfigTest {
         assertFalse(yaml.contains("username"))
         assertFalse(yaml.contains("password"))
     }
+
+    @Test
+    fun `notification formatter exposes real node name, speeds, mode and disconnect label`() {
+        val connectedVpn = VpnNotificationFormatter.formatConnected(
+            nodeName = "美国静态 (链式代理)",
+            protocolBadge = "链式代理·2跳",
+            uplinkBps = 40L,
+            downlinkBps = 2048L,
+            proxyOnlyMode = false
+        )
+        assertTrue(connectedVpn.expandedTitle.contains("美国静态 (链式代理)"))
+        assertTrue(connectedVpn.speedLine.contains("↑ 40 B/s"))
+        assertTrue(connectedVpn.speedLine.contains("↓ 2.00 KB/s"))
+        assertTrue(connectedVpn.speedLine.contains("VPN"))
+        assertTrue(connectedVpn.statusBadge.contains("VPN"))
+        assertTrue(connectedVpn.actionLabel == "断开连接")
+
+        val connectedProxyOnly = VpnNotificationFormatter.formatConnected(
+            nodeName = "香港高速",
+            protocolBadge = "VLESS·REALITY",
+            uplinkBps = 0L,
+            downlinkBps = 0L,
+            proxyOnlyMode = true
+        )
+        assertTrue(connectedProxyOnly.statusBadge.contains("纯代理"))
+        assertTrue(connectedProxyOnly.speedLine.contains("纯代理"))
+
+        val connecting = VpnNotificationFormatter.formatConnecting(nodeName = "日本节点", proxyOnlyMode = false)
+        assertTrue(connecting.expandedTitle.contains("日本节点"))
+        assertTrue(connecting.statusBadge.contains("连接中"))
+    }
 }

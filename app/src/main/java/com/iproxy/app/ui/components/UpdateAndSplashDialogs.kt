@@ -32,14 +32,9 @@ import androidx.compose.material.icons.rounded.Download
 import androidx.compose.material.icons.rounded.OpenInBrowser
 import androidx.compose.material.icons.rounded.SystemUpdate
 import androidx.compose.material.icons.rounded.WarningAmber
-import androidx.compose.material3.Button
 import androidx.compose.material3.Icon
-import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -55,18 +50,15 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.compose.ui.window.Dialog
-import androidx.compose.ui.window.DialogProperties
 import com.iproxy.app.BuildConfig
 import com.iproxy.app.core.update.AppUpdateInfo
 import com.iproxy.app.core.update.InstallLaunchResult
 import com.iproxy.app.core.util.FormatUtils
 import com.iproxy.app.ui.theme.CyanAccent
 import com.iproxy.app.ui.theme.ErrorRed
-import com.iproxy.app.ui.theme.LocalLiquidPalette
 
 /**
- * 黑曜石液态开屏层：展示重新设计的黑色 Logo，并在发现新版本时无缝衔接更新弹窗
+ * 3D 深海蓝玻璃开屏层：带高密流动蓝色星链粒子流与黑曜石光球 Logo，发现新版本时无缝衔接更新弹窗
  */
 @Composable
 fun SplashBrandOverlay(
@@ -74,6 +66,7 @@ fun SplashBrandOverlay(
     isCheckingUpdate: Boolean
 ) {
     var animStarted by remember { mutableStateOf(false) }
+    val reduceMotion = rememberReduceMotionState()
     LaunchedEffect(Unit) {
         animStarted = true
     }
@@ -100,6 +93,14 @@ fun SplashBrandOverlay(
                 ),
             contentAlignment = Alignment.Center
         ) {
+            BlueConstellationParticlesCanvas(
+                particleCount = 68,
+                reduceMotion = reduceMotion,
+                referenceWidthDp = 400f,
+                linkMaxDistDp = 56f,
+                intensity = 0.88f,
+                modifier = Modifier.fillMaxSize()
+            )
             Column(
                 horizontalAlignment = Alignment.CenterHorizontally,
                 modifier = Modifier.scale(logoScale)
@@ -128,7 +129,7 @@ fun SplashBrandOverlay(
 }
 
 /**
- * 开屏 / 手动触发的软件更新液态弹窗
+ * 开屏 / 手动触发的软件更新 3D 蓝色实体玻璃弹窗
  */
 @Composable
 fun AppUpdateDialog(
@@ -145,73 +146,30 @@ fun AppUpdateDialog(
     onOpenReleasePage: () -> Unit,
     onDismiss: () -> Unit
 ) {
-    val palette = LocalLiquidPalette.current
-    val shape = RoundedCornerShape(26.dp)
-
-    Dialog(
-        onDismissRequest = { if (!isDownloading) onDismiss() },
-        properties = DialogProperties(
-            dismissOnBackPress = !isDownloading,
-            dismissOnClickOutside = !isDownloading
-        )
+    AnimatedVisibility(
+        visible = true,
+        enter = fadeIn(tween(220)) + scaleIn(initialScale = 0.94f, animationSpec = tween(220))
     ) {
-        AnimatedVisibility(
-            visible = true,
-            enter = fadeIn(tween(220)) + scaleIn(initialScale = 0.94f, animationSpec = tween(220))
-        ) {
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clip(shape)
-                    .background(
-                        Brush.linearGradient(
-                            listOf(palette.glassElevatedStart, palette.glassElevatedEnd)
-                        )
-                    )
-                    .border(
-                        width = 1.dp,
-                        brush = Brush.linearGradient(
-                            listOf(palette.glassBorderTop, palette.glassBorderBottom)
-                        ),
-                        shape = shape
-                    )
-                    .padding(20.dp)
-            ) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    BlackBrandLogo(size = 44.dp, accentGlow = CyanAccent)
-                    Spacer(modifier = Modifier.width(12.dp))
-                    Column(modifier = Modifier.weight(1f)) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Icon(
-                                imageVector = Icons.Rounded.SystemUpdate,
-                                contentDescription = null,
-                                tint = MaterialTheme.colorScheme.primary,
-                                modifier = Modifier.size(18.dp)
-                            )
-                            Spacer(modifier = Modifier.width(6.dp))
-                            Text(
-                                text = "发现新版本",
-                                style = MaterialTheme.typography.titleMedium,
-                                fontWeight = FontWeight.Bold,
-                                color = MaterialTheme.colorScheme.onSurface
-                            )
-                        }
-                        Spacer(modifier = Modifier.height(2.dp))
-                        Text(
-                            text = "v${BuildConfig.VERSION_NAME} → ${updateInfo.tagName}",
-                            style = MaterialTheme.typography.labelMedium,
-                            color = MaterialTheme.colorScheme.primary,
-                            fontWeight = FontWeight.SemiBold
-                        )
-                    }
-                }
+        GlassDialog(
+            onDismissRequest = { if (!isDownloading) onDismiss() },
+            title = "发现新版本 ${updateInfo.tagName}",
+            dismissOnBackPress = !isDownloading,
+            dismissOnClickOutside = !isDownloading,
+            headerExtra = {
+                BlackBrandLogo(size = 34.dp, accentGlow = CyanAccent)
+            },
+            content = {
+                Text(
+                    text = "v${BuildConfig.VERSION_NAME} → ${updateInfo.tagName}",
+                    style = MaterialTheme.typography.labelLarge,
+                    color = Color(0xFF79D1FF),
+                    fontWeight = FontWeight.SemiBold
+                )
 
-                Spacer(modifier = Modifier.height(14.dp))
-
-                Surface(
-                    shape = RoundedCornerShape(14.dp),
-                    color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f),
-                    modifier = Modifier.fillMaxWidth()
+                LiquidGlassCard(
+                    modifier = Modifier.fillMaxWidth(),
+                    cornerRadius = 16.dp,
+                    particleCount = 18
                 ) {
                     Column(
                         modifier = Modifier
@@ -224,14 +182,14 @@ fun AppUpdateDialog(
                             text = updateInfo.title,
                             style = MaterialTheme.typography.titleSmall,
                             fontWeight = FontWeight.SemiBold,
-                            color = MaterialTheme.colorScheme.onSurface
+                            color = ProtoTextPrimary
                         )
                         if (updateInfo.releaseNotes.isNotBlank()) {
                             Spacer(modifier = Modifier.height(6.dp))
                             Text(
                                 text = updateInfo.releaseNotes,
                                 style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                                color = ProtoTextMuted
                             )
                         }
                         updateInfo.apkAsset?.let { asset ->
@@ -242,44 +200,36 @@ fun AppUpdateDialog(
                             Text(
                                 text = "匹配安装包: ${asset.name}$sizeLabel",
                                 style = MaterialTheme.typography.labelSmall,
-                                color = MaterialTheme.colorScheme.primary
+                                color = Color(0xFF79D1FF)
                             )
                         }
                     }
                 }
 
                 if (isDownloading) {
-                    Spacer(modifier = Modifier.height(12.dp))
-                    if (downloadProgress != null) {
-                        LinearProgressIndicator(
-                            progress = { downloadProgress.coerceIn(0f, 1f) },
-                            modifier = Modifier.fillMaxWidth()
-                        )
-                        Spacer(modifier = Modifier.height(4.dp))
-                        Text(
-                            text = "正在下载安装包 ${(downloadProgress * 100).toInt()}%...",
-                            style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    } else {
-                        LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
-                        Spacer(modifier = Modifier.height(4.dp))
-                        Text(
-                            text = "正在连接下载服务器...",
-                            style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
+                    Spacer(modifier = Modifier.height(6.dp))
+                    GlassLoadingBar(progress = downloadProgress)
+                    Text(
+                        text = if (downloadProgress != null) {
+                            "正在下载安装包 ${(downloadProgress * 100).toInt()}%..."
+                        } else {
+                            "正在连接下载服务器..."
+                        },
+                        style = MaterialTheme.typography.labelSmall,
+                        color = ProtoTextMuted
+                    )
                 }
 
                 if (signatureMismatch != null) {
-                    Spacer(modifier = Modifier.height(10.dp))
-                    Surface(
-                        shape = RoundedCornerShape(12.dp),
-                        color = ErrorRed.copy(alpha = 0.12f),
-                        modifier = Modifier.fillMaxWidth()
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(14.dp))
+                            .background(ErrorRed.copy(alpha = 0.14f))
+                            .border(1.dp, ErrorRed.copy(alpha = 0.55f), RoundedCornerShape(14.dp))
+                            .padding(12.dp)
                     ) {
-                        Column(modifier = Modifier.padding(12.dp)) {
+                        Column {
                             Row(verticalAlignment = Alignment.CenterVertically) {
                                 Icon(
                                     imageVector = Icons.Rounded.WarningAmber,
@@ -300,14 +250,13 @@ fun AppUpdateDialog(
                                 text = "当前签名 (${signatureMismatch.installedCertShort}...) 与新版 (${signatureMismatch.archiveCertShort}...) 不同。" +
                                     "请先复制节点备份，再保存安装包到「下载/I」并卸载旧版重装；升级到统一签名版后，今后更新均可直接覆盖安装。",
                                 style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                                color = ProtoTextMuted
                             )
                         }
                     }
                 }
 
                 if (!downloadError.isNullOrBlank()) {
-                    Spacer(modifier = Modifier.height(8.dp))
                     Text(
                         text = downloadError,
                         style = MaterialTheme.typography.bodySmall,
@@ -315,10 +264,8 @@ fun AppUpdateDialog(
                     )
                 }
 
-                Spacer(modifier = Modifier.height(16.dp))
-
                 if (signatureMismatch != null && hasPendingInstallApk) {
-                    OutlinedButton(
+                    GlassSecondaryButton(
                         onClick = onExportBackup,
                         modifier = Modifier.fillMaxWidth()
                     ) {
@@ -326,59 +273,51 @@ fun AppUpdateDialog(
                         Spacer(modifier = Modifier.width(6.dp))
                         Text("1. 复制节点与配置备份到剪贴板")
                     }
-                    Spacer(modifier = Modifier.height(6.dp))
-                    Button(
+                    GlassActionButton(
                         onClick = onSaveApkAndUninstall,
                         modifier = Modifier.fillMaxWidth()
                     ) {
                         Icon(Icons.Rounded.DeleteSweep, contentDescription = null, modifier = Modifier.size(18.dp))
                         Spacer(modifier = Modifier.width(6.dp))
-                        Text("2. 保存安装包到「下载」并卸载旧版")
+                        Text("2. 保存安装包到「下载」并卸载旧版", fontWeight = FontWeight.SemiBold)
                     }
                 } else if (hasPendingInstallApk) {
-                    Button(
+                    GlassActionButton(
                         onClick = onRetryInstall,
                         modifier = Modifier.fillMaxWidth()
                     ) {
                         Icon(Icons.Rounded.SystemUpdate, contentDescription = null, modifier = Modifier.size(18.dp))
                         Spacer(modifier = Modifier.width(6.dp))
-                        Text("立即安装已下载安装包")
+                        Text("立即安装已下载安装包", fontWeight = FontWeight.SemiBold)
                     }
                 } else if (updateInfo.apkAsset != null) {
-                    Button(
+                    GlassActionButton(
                         onClick = onDownloadAndInstall,
                         enabled = !isDownloading,
                         modifier = Modifier.fillMaxWidth()
                     ) {
                         Icon(Icons.Rounded.Download, contentDescription = null, modifier = Modifier.size(18.dp))
                         Spacer(modifier = Modifier.width(6.dp))
-                        Text(if (isDownloading) "正在下载..." else "立即下载更新")
+                        Text(if (isDownloading) "正在下载..." else "立即下载更新", fontWeight = FontWeight.SemiBold)
                     }
                 }
-
-                Spacer(modifier = Modifier.height(6.dp))
-
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
+            },
+            buttons = {
+                GlassSecondaryButton(
+                    onClick = onOpenReleasePage,
+                    enabled = !isDownloading
                 ) {
-                    OutlinedButton(
-                        onClick = onOpenReleasePage,
-                        enabled = !isDownloading
-                    ) {
-                        Icon(Icons.Rounded.OpenInBrowser, contentDescription = null, modifier = Modifier.size(16.dp))
-                        Spacer(modifier = Modifier.width(6.dp))
-                        Text("浏览器下载")
-                    }
-                    TextButton(
-                        onClick = onDismiss,
-                        enabled = !isDownloading
-                    ) {
-                        Text("暂不更新")
-                    }
+                    Icon(Icons.Rounded.OpenInBrowser, contentDescription = null, modifier = Modifier.size(16.dp))
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text("浏览器下载")
+                }
+                GlassGhostButton(
+                    onClick = onDismiss,
+                    enabled = !isDownloading
+                ) {
+                    Text("暂不更新")
                 }
             }
-        }
+        )
     }
 }
