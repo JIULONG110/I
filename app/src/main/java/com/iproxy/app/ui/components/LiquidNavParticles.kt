@@ -8,6 +8,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.State
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -307,6 +308,36 @@ internal object RisingTubeParticleField {
 
     fun initialSnapshotTimeSec(): Float = DEFAULT_SNAPSHOT_SEC
 
+    internal fun safeLargeTailPx(
+        trailFactor: Float,
+        containerHeightPx: Float,
+        speedY: Float,
+        radiusPx: Float,
+        maxHeightFraction: Float = 0.075f
+    ): Float {
+        if (!containerHeightPx.isFinite() || containerHeightPx <= 0f) return 0f
+        val maxTail = (containerHeightPx * maxHeightFraction).coerceAtLeast(0.5f)
+        val safeRadius = if (radiusPx.isFinite() && radiusPx > 0f) radiusPx else 0f
+        val minTail = (safeRadius * 1.1f).coerceAtMost(maxTail)
+        val raw = trailFactor * containerHeightPx * speedY * 1.45f
+        val finiteRaw = if (raw.isFinite()) raw else minTail
+        return finiteRaw.coerceIn(minTail, maxTail)
+    }
+
+    internal fun safeFineTailPx(
+        trailFactor: Float,
+        containerHeightPx: Float,
+        speedY: Float,
+        maxHeightFraction: Float = 0.055f
+    ): Float {
+        if (!containerHeightPx.isFinite() || containerHeightPx <= 0f) return 0f
+        val maxTail = (containerHeightPx * maxHeightFraction).coerceAtLeast(0.4f)
+        val minTail = 1.8f.coerceAtMost(maxTail)
+        val raw = trailFactor * containerHeightPx * speedY * 1.55f
+        val finiteRaw = if (raw.isFinite()) raw else minTail
+        return finiteRaw.coerceIn(minTail, maxTail)
+    }
+
     internal fun smoothstep(edge0: Float, edge1: Float, x: Float): Float {
         if (edge0 == edge1) return 0f
         val t = ((x - edge0) / (edge1 - edge0)).coerceIn(0f, 1f)
@@ -352,15 +383,16 @@ internal object NavParticleField {
 }
 
 /**
- * 根级共享帧时钟：全屏所有玻璃控件与粒子画布复用单一 Lifecycle 协程驱动，低耗电且 60/120Hz 同步流畅
+ * 根级共享帧时钟 State：全屏所有玻璃控件仅在 Canvas 绘制阶段读取 state.value，
+ * 避免每秒 60/120 次触发整个页面重组，保持零重组高帧率与可测试空闲判定。
  */
-internal val LocalSharedParticleClockSec = staticCompositionLocalOf<Float?> { null }
+internal val LocalSharedParticleClockSec = staticCompositionLocalOf<State<Float>?> { null }
 
 @Composable
 internal fun ProvideParticleAnimationClock(content: @Composable () -> Unit) {
     val reduceMotion = rememberReduceMotionState()
-    val elapsedSec = rememberStandaloneParticleClockSec(reduceMotion = reduceMotion)
-    CompositionLocalProvider(LocalSharedParticleClockSec provides elapsedSec) {
+    val elapsedState = rememberStandaloneParticleClockState(reduceMotion = reduceMotion)
+    CompositionLocalProvider(LocalSharedParticleClockSec provides elapsedState) {
         content()
     }
 }
@@ -396,7 +428,7 @@ internal fun rememberReduceMotionState(): Boolean {
 }
 
 @Composable
-private fun rememberStandaloneParticleClockSec(reduceMotion: Boolean): Float {
+private fun rememberStandaloneParticleClockState(reduceMotion: Boolean): State<Float> {
     val lifecycleOwner = LocalLifecycleOwner.current
     var isResumed by remember {
         mutableStateOf(lifecycleOwner.lifecycle.currentState.isAtLeast(Lifecycle.State.STARTED))
@@ -409,7 +441,7 @@ private fun rememberStandaloneParticleClockSec(reduceMotion: Boolean): Float {
         onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
     }
 
-    var elapsedSec by remember { mutableFloatStateOf(RisingTubeParticleField.initialSnapshotTimeSec()) }
+    val elapsedState = remember { mutableFloatStateOf(RisingTubeParticleField.initialSnapshotTimeSec()) }
     LaunchedEffect(reduceMotion, isResumed) {
         if (reduceMotion || !isResumed) return@LaunchedEffect
         var lastNanos = 0L
@@ -417,20 +449,20 @@ private fun rememberStandaloneParticleClockSec(reduceMotion: Boolean): Float {
             withFrameNanos { frameNanos ->
                 if (lastNanos != 0L) {
                     val deltaSec = ((frameNanos - lastNanos) / 1_000_000_000f).coerceIn(0f, 0.05f)
-                    elapsedSec += deltaSec
+                    elapsedState.floatValue += deltaSec
                 }
                 lastNanos = frameNanos
             }
         }
     }
-    return elapsedSec
+    return elapsedState
 }
 
 @Composable
-internal fun rememberParticleAnimationClockSec(reduceMotion: Boolean): Float {
+internal fun rememberParticleAnimationClockState(reduceMotion: Boolean): State<Float> {
     val shared = LocalSharedParticleClockSec.current
     if (shared != null) return shared
-    return rememberStandaloneParticleClockSec(reduceMotion = reduceMotion)
+    return rememberStandaloneParticleClockState(reduceMotion = reduceMotion)
 }
 
 /**
@@ -449,7 +481,7 @@ internal fun DrawScope.drawRisingPlasmaParticles(
 ) {
     val w = size.width
     val h = size.height
-    if (w <= 0f || h <= 0f) return
+    if (w < 2f || h < 2f) return
 
     val wDp = w / density
     val hDp = h / density
@@ -509,8 +541,13 @@ internal fun DrawScope.drawRisingPlasmaParticles(
         val plasma = RisingTubeParticleField.plasmaColorForMix(spec.hueMix)
         val core = RisingTubeParticleField.coreColorForPreference(spec.corePreference)
 
-        // 柔和上冲星尾（短小细腻，避免拉成死板竖条）
-        val tailPx = (spec.trailFactor * h * spec.speedY * 1.45f).coerceIn(rPx * 1.1f, h * 0.075f)
+        // 柔和上冲星尾（安全钳制，避免矮控件高度下限大于上限触发 coerceIn IllegalArgumentException）
+        val tailPx = RisingTubeParticleField.safeLargeTailPx(
+            trailFactor = spec.trailFactor,
+            containerHeightPx = h,
+            speedY = spec.speedY,
+            radiusPx = rPx
+        )
         drawLine(
             color = plasma.copy(alpha = (alpha * 0.26f).coerceAtMost(0.36f)),
             start = Offset(cx, cy + tailPx),
@@ -560,7 +597,11 @@ internal fun DrawScope.drawRisingPlasmaParticles(
         val plasma = RisingTubeParticleField.plasmaColorForMix(spec.hueMix)
 
         if (spec.trailFactor > 0.009f) {
-            val tailLen = (spec.trailFactor * h * spec.speedY * 1.55f).coerceIn(1.8f, h * 0.055f)
+            val tailLen = RisingTubeParticleField.safeFineTailPx(
+                trailFactor = spec.trailFactor,
+                containerHeightPx = h,
+                speedY = spec.speedY
+            )
             drawLine(
                 color = plasma.copy(alpha = (alpha * 0.56f).coerceAtMost(0.70f)),
                 start = Offset(cx, cy + tailLen),
@@ -713,7 +754,7 @@ internal fun BlueConstellationParticlesCanvas(
     densityMultiplier: Float? = null,
     columnConcentrated: Boolean? = null
 ) {
-    val elapsedSec = rememberParticleAnimationClockSec(reduceMotion = reduceMotion)
+    val clockState = rememberParticleAnimationClockState(reduceMotion = reduceMotion)
     val effectiveDensityMultiplier = densityMultiplier ?: when {
         isHeroTube -> 1.0f
         particleCount in 1..14 -> 0.95f
@@ -722,6 +763,11 @@ internal fun BlueConstellationParticlesCanvas(
     }
 
     Canvas(modifier = modifier) {
+        val elapsedSec = if (reduceMotion) {
+            RisingTubeParticleField.initialSnapshotTimeSec()
+        } else {
+            clockState.value
+        }
         drawRisingPlasmaParticles(
             elapsedSec = elapsedSec,
             reduceMotion = reduceMotion,
@@ -746,7 +792,7 @@ internal fun DarkParticleDockBackdrop(
     reduceMotion: Boolean,
     modifier: Modifier = Modifier
 ) {
-    val elapsedSec = rememberParticleAnimationClockSec(reduceMotion = reduceMotion)
+    val clockState = rememberParticleAnimationClockState(reduceMotion = reduceMotion)
 
     Canvas(modifier = modifier) {
         val w = size.width
@@ -794,6 +840,7 @@ internal fun DarkParticleDockBackdrop(
             val centerY = h * 0.5f
             val pillLeft = centerX - pillWidth * 0.5f
             val pillCorner = CornerRadius(pillHeight / 2f, pillHeight / 2f)
+            val glowRadius = (pillWidth * 0.86f).coerceAtLeast(1f)
 
             drawCircle(
                 brush = Brush.radialGradient(
@@ -803,9 +850,9 @@ internal fun DarkParticleDockBackdrop(
                         Color.Transparent
                     ),
                     center = Offset(centerX, centerY),
-                    radius = pillWidth * 0.86f
+                    radius = glowRadius
                 ),
-                radius = pillWidth * 0.86f,
+                radius = glowRadius,
                 center = Offset(centerX, centerY)
             )
 
@@ -837,6 +884,11 @@ internal fun DarkParticleDockBackdrop(
         }
 
         // 3. 等比例高速向上冲的紫/洋红/电蓝+粉白/青色粒子（严格留在横向胶囊内部，精细密度保持图标文字锐利可读）
+        val elapsedSec = if (reduceMotion) {
+            RisingTubeParticleField.initialSnapshotTimeSec()
+        } else {
+            clockState.value
+        }
         drawRisingPlasmaParticles(
             elapsedSec = elapsedSec,
             reduceMotion = reduceMotion,

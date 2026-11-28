@@ -274,6 +274,7 @@ internal class VpnNotificationRenderer {
         elapsedSec: Float,
         isCompact: Boolean
     ) {
+        if (w < 2f || h < 2f) return
         val counts = RisingTubeParticleField.scaleParticleCounts(
             widthDp = w,
             heightDp = h,
@@ -307,7 +308,13 @@ internal class VpnNotificationRenderer {
             val plasmaRgb = RisingTubeParticleField.plasmaColorForMix(spec.hueMix).toArgb() and 0x00FFFFFF
             val coreRgb = RisingTubeParticleField.coreColorForPreference(spec.corePreference).toArgb() and 0x00FFFFFF
 
-            val tailLen = (spec.trailFactor * h * spec.speedY * 1.45f).coerceIn(r * 1.0f, h * 0.14f)
+            val tailLen = RisingTubeParticleField.safeLargeTailPx(
+                trailFactor = spec.trailFactor,
+                containerHeightPx = h,
+                speedY = spec.speedY,
+                radiusPx = r,
+                maxHeightFraction = 0.14f
+            )
             val tailAlpha = (alpha * 0.24f * 255f).toInt().coerceIn(0, 72)
             streakPaint.color = (tailAlpha shl 24) or plasmaRgb
             streakPaint.strokeWidth = (r * 0.9f).coerceAtLeast(1.0f)
@@ -346,7 +353,12 @@ internal class VpnNotificationRenderer {
             val coreRgb = RisingTubeParticleField.coreColorForPreference(spec.corePreference).toArgb() and 0x00FFFFFF
 
             if (spec.trailFactor > 0.009f) {
-                val tailLen = (spec.trailFactor * h * spec.speedY * 1.55f).coerceIn(1.8f, h * 0.12f)
+                val tailLen = RisingTubeParticleField.safeFineTailPx(
+                    trailFactor = spec.trailFactor,
+                    containerHeightPx = h,
+                    speedY = spec.speedY,
+                    maxHeightFraction = 0.12f
+                )
                 val lineA = (alpha * 0.58f * 255f).toInt().coerceIn(0, 150)
                 streakPaint.color = (lineA shl 24) or plasmaRgb
                 streakPaint.strokeWidth = (r * 1.4f).coerceAtLeast(0.95f)

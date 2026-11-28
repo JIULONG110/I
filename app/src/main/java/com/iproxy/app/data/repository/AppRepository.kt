@@ -240,7 +240,12 @@ class AppRepository(
     suspend fun measureNodesDelay(nodeIds: List<String>? = null): Unit = withContext(Dispatchers.IO) {
         val settings = storage.getSettingsOnce()
         val assetDir = IVpnService.ensureXrayAssetsDirectory(context)
-        Libv2ray.initCoreEnv(assetDir.absolutePath, "")
+        val coreReady = runCatching {
+            Libv2ray.initCoreEnv(assetDir.absolutePath, "")
+        }.onFailure { err ->
+            CoreLogBuffer.e("AppRepository", "初始化测速核心环境失败: ${err.message ?: err.javaClass.simpleName}")
+        }.isSuccess
+        if (!coreReady) return@withContext
 
         val allNodes = storage.readNodesSync()
         val targets = if (nodeIds == null) allNodes else allNodes.filter { it.id in nodeIds }

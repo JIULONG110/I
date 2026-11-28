@@ -786,8 +786,9 @@ fun GlassLoadingBar(
         Canvas(modifier = Modifier.fillMaxSize()) {
             val h = size.height
             val w = size.width
+            if (w <= 0f || h <= 0f) return@Canvas
             if (progress != null) {
-                val fillW = (w * progress.coerceIn(0f, 1f)).coerceAtLeast(h)
+                val fillW = (w * progress.coerceIn(0f, 1f)).coerceAtLeast(minOf(w, h))
                 drawRoundRect(
                     brush = Brush.horizontalGradient(
                         listOf(Color(0xE07B2EFF), Color(0xEBE82EC8), Color(0xFF3AEDFF))

@@ -47,7 +47,7 @@ class AppStorage(private val context: Context) {
         if (raw.isNullOrBlank()) {
             AppSettings()
         } else {
-            runCatching { gson.fromJson(raw, AppSettings::class.java) }.getOrNull() ?: AppSettings()
+            runCatching { gson.fromJson(raw, AppSettings::class.java)?.sanitized() }.getOrNull() ?: AppSettings()
         }
     }
 
@@ -111,7 +111,7 @@ class AppStorage(private val context: Context) {
 
     fun readSettingsSnapshotSync(): AppSettings {
         val raw = mmkv.decodeString(KEY_SETTINGS_SNAPSHOT) ?: return AppSettings()
-        return runCatching { gson.fromJson(raw, AppSettings::class.java) }.getOrNull() ?: AppSettings()
+        return runCatching { gson.fromJson(raw, AppSettings::class.java)?.sanitized() }.getOrNull() ?: AppSettings()
     }
 
     suspend fun getSettingsOnce(): AppSettings {
@@ -121,9 +121,9 @@ class AppStorage(private val context: Context) {
     suspend fun updateSettings(transform: (AppSettings) -> AppSettings) {
         context.settingsDataStore.edit { prefs ->
             val current = prefs[KEY_SETTINGS_JSON]?.let {
-                runCatching { gson.fromJson(it, AppSettings::class.java) }.getOrNull()
+                runCatching { gson.fromJson(it, AppSettings::class.java)?.sanitized() }.getOrNull()
             } ?: AppSettings()
-            val updated = transform(current)
+            val updated = transform(current).sanitized()
             val json = gson.toJson(updated)
             prefs[KEY_SETTINGS_JSON] = json
             mmkv.encode(KEY_SETTINGS_SNAPSHOT, json)
@@ -145,13 +145,17 @@ class AppStorage(private val context: Context) {
     /**
      * 从备份 JSON 恢复配置
      */
+    @Suppress("USELESS_ELVIS")
     suspend fun importBackupJson(json: String): Boolean {
         val payload = runCatching { gson.fromJson(json, BackupPayload::class.java) }.getOrNull()
             ?: return false
-        val sanitizedNodes = payload.nodes.map { it.sanitized() }
+        val rawNodes = (payload.nodes as List<ServerNode>?) ?: emptyList()
+        val rawSubs = (payload.subscriptions as List<Subscription>?) ?: emptyList()
+        val rawSettings = (payload.settings as AppSettings?)?.sanitized() ?: AppSettings()
+        val sanitizedNodes = rawNodes.map { it.sanitized() }
         saveNodesSync(sanitizedNodes)
-        saveSubscriptionsSync(payload.subscriptions)
-        updateSettings { payload.settings }
+        saveSubscriptionsSync(rawSubs)
+        updateSettings { rawSettings }
         if (getSelectedNodeIdSync() == null && sanitizedNodes.isNotEmpty()) {
             setSelectedNodeIdSync(sanitizedNodes.first().id)
         }

@@ -306,6 +306,7 @@ private fun ReactorHeroCylinder(
             Canvas(modifier = Modifier.fillMaxSize()) {
                 val w = size.width
                 val h = size.height
+                if (w <= 1f || h <= 1f) return@Canvas
                 val capR = CornerRadius(w * 0.5f, w * 0.5f)
 
                 // 略压暗的深邃宇宙紫-靛蓝玻璃基底（保持高饱和粒子色彩浓、轮廓锐利）
@@ -330,13 +331,14 @@ private fun ReactorHeroCylinder(
                             Color.Transparent
                         ),
                         center = Offset(w * 0.5f, h * 0.54f),
-                        radius = h * 0.44f
+                        radius = (h * 0.44f).coerceAtLeast(1f)
                     ),
                     topLeft = Offset(w * 0.08f, h * 0.12f),
                     size = Size(w * 0.84f, h * 0.78f)
                 )
 
                 // 底部上升流光聚焦点（激发底部粒子向上冲击感）
+                val bottomFocusRadius = (w * 0.76f).coerceAtLeast(1f)
                 drawCircle(
                     brush = Brush.radialGradient(
                         colors = listOf(
@@ -345,9 +347,9 @@ private fun ReactorHeroCylinder(
                             Color.Transparent
                         ),
                         center = Offset(w * 0.5f, h * 0.85f),
-                        radius = w * 0.76f
+                        radius = bottomFocusRadius
                     ),
-                    radius = w * 0.76f,
+                    radius = bottomFocusRadius,
                     center = Offset(w * 0.5f, h * 0.85f)
                 )
             }

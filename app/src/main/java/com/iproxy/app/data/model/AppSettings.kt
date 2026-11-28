@@ -61,4 +61,25 @@ data class AppSettings(
     val customDirectRules: String = "",
     val customProxyRules: String = "",
     val customBlockRules: String = ""
-)
+) {
+    /**
+     * 防止 Gson UnsafeAllocator 在读取旧版本/残缺 JSON 时注入 null，并兜底非法端口与 MTU。
+     */
+    @Suppress("USELESS_ELVIS")
+    fun sanitized(): AppSettings = copy(
+        routingMode = (routingMode as RoutingMode?) ?: RoutingMode.RULE_BYPASS_CN,
+        remoteDns = (remoteDns as String?)?.ifBlank { null } ?: "1.1.1.1",
+        directDns = (directDns as String?)?.ifBlank { null } ?: "223.5.5.5",
+        socksPort = if (socksPort in 1024..65535) socksPort else 10808,
+        httpPort = if (httpPort in 1024..65535) httpPort else 10809,
+        vpnMtu = if (vpnMtu in 1200..9000) vpnMtu else 1500,
+        speedTestUrl = (speedTestUrl as String?)?.ifBlank { null } ?: "https://www.gstatic.com/generate_204",
+        perAppMode = (perAppMode as PerAppMode?) ?: PerAppMode.DISABLED,
+        selectedAppPackages = (selectedAppPackages as Set<String>?) ?: emptySet(),
+        themeMode = (themeMode as ThemeMode?) ?: ThemeMode.SYSTEM,
+        language = (language as AppLanguage?) ?: AppLanguage.ZH_CN,
+        customDirectRules = (customDirectRules as String?) ?: "",
+        customProxyRules = (customProxyRules as String?) ?: "",
+        customBlockRules = (customBlockRules as String?) ?: ""
+    )
+}

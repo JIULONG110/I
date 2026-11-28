@@ -107,6 +107,47 @@ class LiquidNavParticlesTest {
         assertTrue(checkbox.fineCount < switchPill.fineCount && switchPill.fineCount < modeButton.fineCount)
     }
 
+    @Test
+    fun `particle tail helpers never throw coerceIn range exceptions on compact or zero-height containers`() {
+        val testHeightsPx = listOf(0f, 0.5f, 1f, 8f, 16f, 32f, 64f, 115f, 240f, 850f)
+        val radiiPx = listOf(1f, 4.5f, 8.525f, 16f)
+
+        for (h in testHeightsPx) {
+            val fineTail = RisingTubeParticleField.safeFineTailPx(
+                trailFactor = 0.025f,
+                containerHeightPx = h,
+                speedY = 0.9f
+            )
+            assertTrue(fineTail.isFinite() && fineTail >= 0f, "Invalid fine tail at h=$h: $fineTail")
+
+            for (r in radiiPx) {
+                val largeTail = RisingTubeParticleField.safeLargeTailPx(
+                    trailFactor = 0.03f,
+                    containerHeightPx = h,
+                    speedY = 0.8f,
+                    radiusPx = r
+                )
+                assertTrue(largeTail.isFinite() && largeTail >= 0f, "Invalid large tail at h=$h, r=$r: $largeTail")
+            }
+        }
+    }
+
+    @Test
+    fun `app settings sanitize restores safe defaults for invalid ports and null Gson fields`() {
+        val gson = com.google.gson.Gson()
+        val legacyPartial = gson.fromJson(
+            """{"routingMode":"GLOBAL_PROXY","socksPort":80,"vpnMtu":50}""",
+            com.iproxy.app.data.model.AppSettings::class.java
+        ).sanitized()
+
+        assertEquals(com.iproxy.app.data.model.RoutingMode.GLOBAL_PROXY, legacyPartial.routingMode)
+        assertEquals(10808, legacyPartial.socksPort)
+        assertEquals(1500, legacyPartial.vpnMtu)
+        assertEquals("1.1.1.1", legacyPartial.remoteDns)
+        assertEquals(emptySet<String>(), legacyPartial.selectedAppPackages)
+        assertEquals("", legacyPartial.customProxyRules)
+    }
+
     private fun assertNotNeutralGray(color: Color) {
         val spread = max(color.red, max(color.green, color.blue)) -
             minOf(color.red, color.green, color.blue)

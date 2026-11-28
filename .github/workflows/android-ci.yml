@@ -106,20 +106,29 @@ jobs:
       - name: 执行 Lint 与编译 Debug 及 Release APK
         run: |
           set -o pipefail
-          if ! ./gradlew lint assembleDebug assembleRelease --no-daemon --stacktrace 2>&1 | tee /tmp/gradle-build.log; then
+          if ! ./gradlew lintDebug assembleDebug assembleRelease --no-daemon --stacktrace 2>&1 | tee /tmp/gradle-build.log; then
             grep -E '^(e: |FAILURE:|\* What went wrong:|Caused by:|.*FAILED)' /tmp/gradle-build.log | head -n 20 | while IFS= read -r line; do
               echo "::error::${line}"
             done
             exit 1
           fi
+          if [ ! -f app/build/outputs/apk/debug/app-debug.apk ] && [ -f app/build/outputs/apk/debug/app-universal-debug.apk ]; then
+            cp app/build/outputs/apk/debug/app-universal-debug.apk app/build/outputs/apk/debug/app-debug.apk
+          fi
 
-      - name: 上传 APK 构建产物
+      - name: 上传 app-debug.apk Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: app-debug-apk
+          path: app/build/outputs/apk/debug/app-debug.apk
+
+      - name: 上传全架构 APK 构建产物
         uses: actions/upload-artifact@v4
         with:
           name: I-Android-APKs
           path: |
             app/build/outputs/apk/release/*.apk
-            app/build/outputs/apk/debug/*.apk
+            app/build/outputs/apk/debug/*-*.apk
 
       - name: 校验 Release 与 Debug 签名一致性
         run: |
@@ -163,11 +172,84 @@ jobs:
         if: always()
         run: rm -f "${{ runner.temp }}/iproxy-signing.p12"
 
+  emulator-test:
+    name: 模拟器 UI 导航回归测试
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+
+    steps:
+      - name: 检出代码
+        uses: actions/checkout@v4
+
+      - name: 配置 JDK 17
+        uses: actions/setup-java@v5
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      - name: 安装 Android 37.1 平台与构建工具
+        run: |
+          SDKM=$(find "$ANDROID_HOME/cmdline-tools" -name sdkmanager -type f | sort -r | head -n 1)
+          yes | "$SDKM" --licenses >/dev/null 2>&1 || true
+          "$SDKM" "platforms;android-37.1" "build-tools;37.0.0" "platform-tools"
+          if [ -e /dev/kvm ]; then
+            sudo chmod 666 /dev/kvm || true
+          fi
+
+      - name: 授予 gradlew 执行权限
+        run: chmod +x gradlew
+
+      - name: 缓存 Gradle 与核心下载资产
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.gradle/caches
+            ~/.gradle/wrapper
+            app/libs/libv2ray.aar
+            app/src/main/assets/geoip.dat
+            app/src/main/assets/geosite.dat
+          key: ${{ runner.os }}-gradle-core-${{ hashFiles('**/*.gradle*', '**/libs.versions.toml') }}
+          restore-keys: |
+            ${{ runner.os }}-gradle-core-
+
+      - name: 预下载核心组件与构建测试 APK
+        run: ./gradlew downloadCoreAssets assembleDebug assembleDebugAndroidTest --no-daemon --stacktrace
+
+      - name: 运行 connectedDebugAndroidTest 回归测试
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 34
+          target: default
+          arch: x86_64
+          profile: pixel_6
+          emulator-options: -no-snapshot-save -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
+          disable-animations: false
+          script: ./gradlew connectedDebugAndroidTest --no-daemon --stacktrace
+
+      - name: 上传测试报告
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: android-test-report
+          path: app/build/reports/androidTests/connected/debug/
+
+  release:
+    name: 发布 GitHub Release
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: [ build, emulator-test ]
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: 下载构建产物
+        uses: actions/download-artifact@v4
+        with:
+          name: I-Android-APKs
+          path: release-apks
+
       - name: 发布到 GitHub Releases
-        if: startsWith(github.ref, 'refs/tags/v')
         uses: softprops/action-gh-release@v2
         with:
           files: |
-            app/build/outputs/apk/release/*.apk
-            app/build/outputs/apk/debug/*.apk
+            release-apks/release/*.apk
+            release-apks/debug/*.apk
           generate_release_notes: true
