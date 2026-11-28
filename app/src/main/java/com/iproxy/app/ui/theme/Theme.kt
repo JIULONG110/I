@@ -8,8 +8,8 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.Immutable
-import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
@@ -114,13 +114,16 @@ fun IProxyTheme(
     content: @Composable () -> Unit
 ) {
     val context = LocalContext.current
-    SideEffect {
-        val activity = context as? ComponentActivity ?: return@SideEffect
-        val barStyle = SystemBarStyle.dark(android.graphics.Color.TRANSPARENT)
-        activity.enableEdgeToEdge(
-            statusBarStyle = barStyle,
-            navigationBarStyle = barStyle
-        )
+    DisposableEffect(context) {
+        val activity = context as? ComponentActivity
+        if (activity != null) {
+            val barStyle = SystemBarStyle.dark(android.graphics.Color.TRANSPARENT)
+            activity.enableEdgeToEdge(
+                statusBarStyle = barStyle,
+                navigationBarStyle = barStyle
+            )
+        }
+        onDispose {}
     }
 
     CompositionLocalProvider(

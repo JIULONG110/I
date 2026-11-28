@@ -3,11 +3,11 @@ package com.iproxy.app.ui.components
 import android.animation.ValueAnimator
 import android.content.Context
 import android.provider.Settings
+import android.view.Choreographer
 import androidx.compose.foundation.Canvas
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.DisposableEffect
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.State
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
@@ -15,7 +15,6 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.staticCompositionLocalOf
-import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
@@ -441,18 +440,30 @@ private fun rememberStandaloneParticleClockState(reduceMotion: Boolean): State<F
         onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
     }
 
+    val inspection = LocalInspectionMode.current
     val elapsedState = remember { mutableFloatStateOf(RisingTubeParticleField.initialSnapshotTimeSec()) }
-    LaunchedEffect(reduceMotion, isResumed) {
-        if (reduceMotion || !isResumed) return@LaunchedEffect
+    DisposableEffect(reduceMotion, isResumed, inspection) {
+        if (reduceMotion || !isResumed || inspection) {
+            return@DisposableEffect onDispose {}
+        }
+        val choreographer = Choreographer.getInstance()
         var lastNanos = 0L
-        while (true) {
-            withFrameNanos { frameNanos ->
+        var active = true
+        val callback = object : Choreographer.FrameCallback {
+            override fun doFrame(frameTimeNanos: Long) {
+                if (!active) return
                 if (lastNanos != 0L) {
-                    val deltaSec = ((frameNanos - lastNanos) / 1_000_000_000f).coerceIn(0f, 0.05f)
+                    val deltaSec = ((frameTimeNanos - lastNanos) / 1_000_000_000f).coerceIn(0f, 0.05f)
                     elapsedState.floatValue += deltaSec
                 }
-                lastNanos = frameNanos
+                lastNanos = frameTimeNanos
+                choreographer.postFrameCallback(this)
             }
+        }
+        choreographer.postFrameCallback(callback)
+        onDispose {
+            active = false
+            choreographer.removeFrameCallback(callback)
         }
     }
     return elapsedState

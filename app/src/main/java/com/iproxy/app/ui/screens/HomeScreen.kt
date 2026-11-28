@@ -51,7 +51,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.geometry.CornerRadius
@@ -63,6 +62,7 @@ import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.StrokeJoin
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.role
@@ -749,16 +749,6 @@ private fun SpeedPillButton(
 ) {
     val reduceMotion = rememberReduceMotionState()
     val shape = CircleShape
-    val transition = rememberInfiniteTransition(label = "speedPulse")
-    val dotAlpha by transition.animateFloat(
-        initialValue = 1f,
-        targetValue = 0.36f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(850, easing = FastOutSlowInEasing),
-            repeatMode = RepeatMode.Reverse
-        ),
-        label = "speedDotAlpha"
-    )
 
     Box(
         modifier = Modifier
@@ -791,10 +781,20 @@ private fun SpeedPillButton(
             verticalAlignment = Alignment.CenterVertically
         ) {
             if (isLoading) {
+                val transition = rememberInfiniteTransition(label = "speedPulse")
+                val dotAlpha by transition.animateFloat(
+                    initialValue = 1f,
+                    targetValue = 0.36f,
+                    animationSpec = infiniteRepeatable(
+                        animation = tween(850, easing = FastOutSlowInEasing),
+                        repeatMode = RepeatMode.Reverse
+                    ),
+                    label = "speedDotAlpha"
+                )
                 Box(
                     modifier = Modifier
                         .size(6.dp)
-                        .alpha(dotAlpha)
+                        .graphicsLayer { alpha = dotAlpha }
                         .clip(CircleShape)
                         .background(Color(0xFF4BE8FF))
                 )
