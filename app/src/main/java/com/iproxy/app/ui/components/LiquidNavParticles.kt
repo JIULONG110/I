@@ -95,6 +95,8 @@ internal object DarkNavPalette {
     val GlassRimIdleBottom = Color(0x472E5682)
     val GlassInnerBevelActive = Color(0x5288DCFF)
     val GlassInnerBevelIdle = Color(0x335B91C6)
+    val GlassGlowRadialActive = Color(0x661F8EFF)
+    val GlassGlowRadialIdle = Color(0x361059BA)
     val GlassMeniscusTop = Color(0x2BCBF0FF)
 }
 

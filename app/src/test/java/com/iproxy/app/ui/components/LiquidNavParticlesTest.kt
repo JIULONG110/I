@@ -47,6 +47,8 @@ class LiquidNavParticlesTest {
             DarkNavPalette.GlassRimIdleBottom,
             DarkNavPalette.GlassInnerBevelActive,
             DarkNavPalette.GlassInnerBevelIdle,
+            DarkNavPalette.GlassGlowRadialActive,
+            DarkNavPalette.GlassGlowRadialIdle,
             DarkNavPalette.GlassMeniscusTop
         )
 
