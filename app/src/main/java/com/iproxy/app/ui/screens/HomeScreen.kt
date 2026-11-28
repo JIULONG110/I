@@ -88,6 +88,7 @@ import com.iproxy.app.ui.components.GlassSmallIconButton
 import com.iproxy.app.ui.components.LiquidGlassCard
 import com.iproxy.app.ui.components.ProtoAccentSky
 import com.iproxy.app.ui.components.ProtoDividerBlue
+import com.iproxy.app.ui.components.ProtoTextMuted
 import com.iproxy.app.ui.components.ProtoTextPrimary
 import com.iproxy.app.ui.components.ProtoTextSecondary
 import com.iproxy.app.ui.components.PrototypeRoutingModeCard
