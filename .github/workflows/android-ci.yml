@@ -215,6 +215,52 @@ jobs:
       - name: 预下载核心组件与构建测试 APK
         run: ./gradlew downloadCoreAssets assembleDebug assembleDebugAndroidTest --no-daemon --stacktrace
 
+      - name: 准备模拟器测试脚本
+        run: |
+          cat << 'SHEOF' > /tmp/run_android_test.sh
+          set +e
+          adb logcat -c || true
+          ./gradlew connectedDebugAndroidTest --no-daemon --stacktrace 2>&1 | tee /tmp/android-test.log
+          RC=${PIPESTATUS[0]}
+          set -e
+          if [ "$RC" -ne 0 ]; then
+            adb logcat -d -v threadtime > /tmp/android-test-logcat.txt || true
+            python3 - << 'PYEOF'
+          import glob, xml.etree.ElementTree as ET
+          errs = []
+          for path in sorted(glob.glob("app/build/outputs/androidTest-results/connected/**/*.xml", recursive=True)):
+              try:
+                  root = ET.parse(path).getroot()
+                  for tc in root.iter("testcase"):
+                      for tag in ("failure", "error"):
+                          node = tc.find(tag)
+                          if node is not None and node.text:
+                              errs.append(f"XML {tc.attrib.get('name')}: " + "\n".join(node.text.splitlines()[:25]))
+              except Exception as ex:
+                  errs.append(f"XML parse error {path}: {ex}")
+          try:
+              with open("/tmp/android-test-logcat.txt", "r", encoding="utf-8", errors="replace") as f:
+                  lines = f.read().splitlines()
+              for i, l in enumerate(lines):
+                  if "FATAL EXCEPTION" in l or "AndroidRuntime: FATAL" in l or "TestRunner: failed" in l:
+                      errs.append("\n".join(lines[i:i+25]))
+                      break
+          except Exception:
+              pass
+          if not errs:
+              try:
+                  with open("/tmp/android-test.log", "r", encoding="utf-8", errors="replace") as f:
+                      errs.append("\n".join(f.read().splitlines()[-30:]))
+              except Exception:
+                  pass
+          msg = "\n".join(errs)[:6000].replace("%", "%25").replace("\r", "").replace("\n", "%0A")
+          print(f"::error::ANDROID_TEST_FAILED:%0A{msg}")
+          PYEOF
+            exit "$RC"
+          fi
+          SHEOF
+          chmod +x /tmp/run_android_test.sh
+
       - name: 运行 connectedDebugAndroidTest 回归测试
         uses: reactivecircus/android-emulator-runner@v2
         with:
@@ -224,7 +270,7 @@ jobs:
           profile: pixel_6
           emulator-options: -no-snapshot-save -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
           disable-animations: false
-          script: ./gradlew connectedDebugAndroidTest --no-daemon --stacktrace
+          script: bash /tmp/run_android_test.sh
 
       - name: 上传测试报告
         if: failure()

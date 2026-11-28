@@ -1,5 +1,7 @@
 package com.iproxy.app
 
+import android.Manifest
+import android.os.Build
 import androidx.compose.ui.test.hasClickAction
 import androidx.compose.ui.test.hasContentDescription
 import androidx.compose.ui.test.hasText
@@ -10,16 +12,39 @@ import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
 import androidx.test.espresso.Espresso
 import androidx.test.ext.junit.runners.AndroidJUnit4
+import androidx.test.platform.app.InstrumentationRegistry
 import com.iproxy.app.ui.MainActivity
 import org.junit.Rule
 import org.junit.Test
+import org.junit.rules.RuleChain
+import org.junit.rules.TestRule
 import org.junit.runner.RunWith
+import org.junit.runners.model.Statement
 
 @RunWith(AndroidJUnit4::class)
 class NavigationRegressionTest {
 
+    private val composeRule = createAndroidComposeRule<MainActivity>()
+
+    private val grantNotificationPermissionRule = TestRule { base, _ ->
+        object : Statement() {
+            override fun evaluate() {
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                    runCatching {
+                        val instrumentation = InstrumentationRegistry.getInstrumentation()
+                        instrumentation.uiAutomation.grantRuntimePermission(
+                            instrumentation.targetContext.packageName,
+                            Manifest.permission.POST_NOTIFICATIONS
+                        )
+                    }
+                }
+                base.evaluate()
+            }
+        }
+    }
+
     @get:Rule
-    val composeRule = createAndroidComposeRule<MainActivity>()
+    val ruleChain: RuleChain = RuleChain.outerRule(grantNotificationPermissionRule).around(composeRule)
 
     private fun dismissOptionalUpdateDialog() {
         val later = composeRule.onAllNodesWithText("暂不更新").fetchSemanticsNodes()
