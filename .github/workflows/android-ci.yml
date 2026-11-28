@@ -265,7 +265,8 @@ jobs:
           fi
           set -e
           if [ "$RC" -ne 0 ]; then
-            timeout 20 adb logcat -d -v threadtime </dev/null >/tmp/android-test-logcat.txt || true
+            timeout 10 adb devices -l </dev/null >/tmp/adb-devices.txt 2>&1 || true
+            timeout 20 adb logcat -d -v threadtime </dev/null >/tmp/android-test-logcat.txt 2>&1 || true
             mkdir -p app/build/reports/androidTests/connected/debug || true
             cp /tmp/android-test.log app/build/reports/androidTests/connected/debug/gradle-android-test.log 2>/dev/null || true
             cp /tmp/android-test-logcat.txt app/build/reports/androidTests/connected/debug/adb-logcat.txt 2>/dev/null || true
@@ -283,15 +284,26 @@ jobs:
               except Exception as ex:
                   errs.append(f"XML parse error {path}: {ex}")
           try:
+              with open("/tmp/adb-devices.txt", "r", encoding="utf-8", errors="replace") as f:
+                  errs.append("ADB_DEVICES:\n" + f.read().strip())
+          except Exception:
+              pass
+          try:
               with open("/tmp/android-test.log", "r", encoding="utf-8", errors="replace") as f:
                   g_lines = f.read().splitlines()
-              errs.append("GRADLE_TAIL:\n" + "\n".join(g_lines[-40:]))
+              idx_task = next((i for i, l in enumerate(g_lines) if "> Task :app:connectedDebugAndroidTest" in l), -1)
+              if idx_task >= 0:
+                  errs.append("GRADLE_TASK:\n" + "\n".join(g_lines[idx_task:idx_task+25]))
+              idx_ww = next((i for i, l in enumerate(g_lines) if "What went wrong:" in l), max(0, len(g_lines) - 45))
+              errs.append("GRADLE_FAILURE:\n" + "\n".join(g_lines[idx_ww:idx_ww+25]))
           except Exception as ex:
               errs.append(f"GRADLE_LOG_ERR: {ex}")
           try:
               with open("/tmp/android-test-logcat.txt", "r", encoding="utf-8", errors="replace") as f:
                   lines = f.read().splitlines()
               errs.append(f"LOGCAT_LINES={len(lines)}")
+              if len(lines) <= 15:
+                  errs.append("LOGCAT_ALL:\n" + "\n".join(lines))
               for i, l in enumerate(lines):
                   if any(k in l for k in ("FATAL EXCEPTION", "AndroidRuntime: FATAL", "Fatal signal", "TestRunner: failed", "Process crashed", "CRASH", "SIGSEGV", "SIGABRT")):
                       errs.append("CRASH_BLOCK:\n" + "\n".join(lines[max(0, i-3):i+25]))
