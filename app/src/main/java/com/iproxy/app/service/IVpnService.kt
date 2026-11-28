@@ -588,7 +588,7 @@ class IVpnService : VpnService(), CoreCallbackHandler {
             .setOngoing(true)
             .setOnlyAlertOnce(true)
             .setSilent(true)
-            .setColor(0xFF071324.toInt())
+            .setColor(0xFF0A081A.toInt())
             .setColorized(true)
             .setCategory(NotificationCompat.CATEGORY_SERVICE)
             .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)

@@ -16,11 +16,8 @@ import android.widget.RemoteViews
 import androidx.compose.ui.graphics.toArgb
 import com.iproxy.app.R
 import com.iproxy.app.core.util.FormatUtils
-import com.iproxy.app.ui.components.DarkNavPalette
-import com.iproxy.app.ui.components.NavParticleField
+import com.iproxy.app.ui.components.RisingTubeParticleField
 import kotlin.math.min
-import kotlin.math.roundToInt
-import kotlin.math.sqrt
 
 internal data class VpnNotificationCopy(
     val compactTitle: String,
@@ -74,18 +71,10 @@ internal object VpnNotificationFormatter {
 }
 
 /**
- * Android 通知栏 3D 深海玻璃实体试管与实时流动蓝色星链粒子渲染器（Runtime Canvas 绘制）。
- * 复用了应用内 104 粒子黄金分布星链物理引擎，确保通知栏视觉与图 1 完全统一，同时严控位图尺寸（总计 < 210 KB）
- * 以符合 Android 12–15 Binder IPC 限制并保持低耗电。
+ * Android 通知栏 3D 深邃紫-洋红-电蓝实体玻璃与等比例快速上冲流光粒子渲染器（Runtime Canvas 绘制）。
+ * 严控位图总量（< 220 KB）与 350ms 亮屏节拍，兼顾流畅实时粒子与低耗电及 Android 12–15 通知 Binder 限制。
  */
 internal class VpnNotificationRenderer {
-
-    private val normXBuf = FloatArray(NavParticleField.specs.size)
-    private val normYBuf = FloatArray(NavParticleField.specs.size)
-    private val alphaBuf = FloatArray(NavParticleField.specs.size)
-    private val pxBuf = FloatArray(NavParticleField.specs.size)
-    private val pyBuf = FloatArray(NavParticleField.specs.size)
-    private val degreeBuf = IntArray(NavParticleField.specs.size)
 
     @Volatile
     private var cachedLogoBadge: Bitmap? = null
@@ -115,8 +104,8 @@ internal class VpnNotificationRenderer {
                 strokeWidth = 2.2f
                 shader = LinearGradient(
                     0f, 0f, size.toFloat(), size.toFloat(),
-                    0xCC80D8FF.toInt(),
-                    0x664095E6,
+                    0xDDE4C6FF.toInt(),
+                    0xA34BE8FF.toInt(),
                     Shader.TileMode.CLAMP
                 )
             }
@@ -137,8 +126,7 @@ internal class VpnNotificationRenderer {
             widthPx = COMPACT_BMP_WIDTH,
             heightPx = COMPACT_BMP_HEIGHT,
             elapsedSec = elapsedAnimSec,
-            particleCount = 48,
-            cornerRadiusPx = COMPACT_BMP_HEIGHT * 0.44f,
+            cornerRadiusPx = COMPACT_BMP_HEIGHT * 0.5f,
             isCompact = true
         )
         val logoBmp = getOrCreateLogoBadge(context)
@@ -164,8 +152,7 @@ internal class VpnNotificationRenderer {
             widthPx = EXPANDED_BMP_WIDTH,
             heightPx = EXPANDED_BMP_HEIGHT,
             elapsedSec = elapsedAnimSec,
-            particleCount = 82,
-            cornerRadiusPx = 22f,
+            cornerRadiusPx = 24f,
             isCompact = false
         )
         val logoBmp = getOrCreateLogoBadge(context)
@@ -187,7 +174,6 @@ internal class VpnNotificationRenderer {
         widthPx: Int,
         heightPx: Int,
         elapsedSec: Float,
-        particleCount: Int,
         cornerRadiusPx: Float,
         isCompact: Boolean
     ): Bitmap {
@@ -197,54 +183,53 @@ internal class VpnNotificationRenderer {
         val canvas = Canvas(bmp)
         val wf = w.toFloat()
         val hf = h.toFloat()
-        val cr = cornerRadiusPx.coerceAtMost(min(wf, hf) * 0.48f)
+        val cr = cornerRadiusPx.coerceAtMost(min(wf, hf) * 0.5f)
         val outerRect = RectF(1f, 1f, wf - 1f, hf - 1f)
         val clipPath = Path().apply { addRoundRect(outerRect, cr, cr, Path.Direction.CW) }
 
         canvas.save()
         canvas.clipPath(clipPath)
 
-        // 1. 图 1 同款深海军蓝通透玻璃底色
+        // 1. 略压暗的深紫靛蓝实体玻璃底板（保持紫/洋红/电蓝粒子浓烈且不抢文本对比度）
         val bgPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
             shader = LinearGradient(
                 0f, 0f, 0f, hf,
-                intArrayOf(0xF5142334.toInt(), 0xF70E1A29.toInt(), 0xFA08111E.toInt()),
+                intArrayOf(0xF7110D24.toInt(), 0xFA090717.toInt(), 0xFC070A18.toInt()),
                 floatArrayOf(0f, 0.52f, 1f),
                 Shader.TileMode.CLAMP
             )
         }
         canvas.drawRect(outerRect, bgPaint)
 
-        // 2. 左侧激活区钴蓝立体胶囊光晕（呼应图 1 左侧激活态蓝光玻璃高亮）
-        val glowCenterX = if (isCompact) wf * 0.16f else wf * 0.22f
-        val glowCenterY = hf * 0.42f
-        val glowRadius = (hf * 1.45f).coerceAtLeast(32f)
+        // 2. 内部底部紫/洋红/电蓝折射焦点光晕
+        val glowCenterX = wf * 0.42f
+        val glowCenterY = hf * 0.88f
+        val glowRadius = (hf * 1.45f).coerceAtLeast(36f)
         val glowPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
             shader = RadialGradient(
                 glowCenterX, glowCenterY, glowRadius,
-                intArrayOf(0x6E1F8EFF, 0x331454A6, 0x00000000),
-                floatArrayOf(0f, 0.55f, 1f),
+                intArrayOf(0x6E832FFF.toInt(), 0x3CE82EC8.toInt(), 0x241F74FF.toInt(), 0x00000000),
+                floatArrayOf(0f, 0.42f, 0.72f, 1f),
                 Shader.TileMode.CLAMP
             )
         }
         canvas.drawCircle(glowCenterX, glowCenterY, glowRadius, glowPaint)
 
-        // 3. 顶部弯月玻璃折射高光
+        // 3. 运行时实时生成：按通知面积等比例缩放的快速上冲紫/洋红/电蓝 + 粉白/青色流光粒子
+        drawRisingNotificationPlasma(canvas, wf, hf, elapsedSec, isCompact)
+
+        // 4. 顶部石英玻璃弧形反光 + 内缩立体玻璃内壁描边
         val sheenPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
             shader = LinearGradient(
-                0f, 0f, 0f, hf * 0.44f,
-                0x28CBEFFF,
+                0f, 0f, 0f, hf * 0.40f,
+                0x2CECE2FF.toInt(),
                 0x00000000,
                 Shader.TileMode.CLAMP
             )
         }
-        canvas.drawRect(0f, 0f, wf, hf * 0.44f, sheenPaint)
+        canvas.drawRect(0f, 0f, wf, hf * 0.40f, sheenPaint)
 
-        // 4. 实时运行时生成的快速流动蓝色颗粒与星链网
-        drawNotificationConstellation(canvas, wf, hf, elapsedSec, particleCount, isCompact)
-
-        // 5. 内层 3D 玻璃管壁凹陷高光环
-        val bevelInset = if (isCompact) 3.2f else 4.2f
+        val bevelInset = if (isCompact) 3.0f else 4.0f
         val innerRect = RectF(
             outerRect.left + bevelInset,
             outerRect.top + bevelInset,
@@ -257,8 +242,8 @@ internal class VpnNotificationRenderer {
             strokeWidth = 1.0f
             shader = LinearGradient(
                 0f, innerRect.top, 0f, innerRect.bottom,
-                0x4D78C8FF,
-                0x221B4C84,
+                0x5EE4D4FF.toInt(),
+                0x303B7CE6.toInt(),
                 Shader.TileMode.CLAMP
             )
         }
@@ -266,14 +251,14 @@ internal class VpnNotificationRenderer {
 
         canvas.restore()
 
-        // 6. 外圈立体蓝青玻璃主边缘
+        // 5. 外层 3D 紫-洋红-电蓝-青玻璃主外边
         val borderPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
             style = Paint.Style.STROKE
-            strokeWidth = 1.5f
+            strokeWidth = 1.6f
             shader = LinearGradient(
                 0f, 0f, wf, hf,
-                intArrayOf(0xC87AD5FF.toInt(), 0x7E588DC0, 0x9E4A9FE8.toInt()),
-                floatArrayOf(0f, 0.55f, 1f),
+                intArrayOf(0xD9D4BFFF.toInt(), 0xA8C84CE8.toInt(), 0xC44BE8FF.toInt()),
+                floatArrayOf(0f, 0.52f, 1f),
                 Shader.TileMode.CLAMP
             )
         }
@@ -282,98 +267,98 @@ internal class VpnNotificationRenderer {
         return bmp
     }
 
-    private fun drawNotificationConstellation(
+    private fun drawRisingNotificationPlasma(
         canvas: Canvas,
         w: Float,
         h: Float,
         elapsedSec: Float,
-        particleCount: Int,
         isCompact: Boolean
     ) {
-        val activeCount = particleCount.coerceIn(1, NavParticleField.specs.size)
-        val speedScale = if (isCompact) 1.35f else 1.25f
-        NavParticleField.sampleInto(
-            elapsedSec = elapsedSec,
-            outNormX = normXBuf,
-            outNormY = normYBuf,
-            outAlpha = alphaBuf,
-            particleCount = activeCount,
-            xSpeedScale = speedScale,
-            timeOffsetSec = if (isCompact) 0.5f else 0f
+        val counts = RisingTubeParticleField.scaleParticleCounts(
+            widthDp = w,
+            heightDp = h,
+            isHeroTube = false,
+            densityMultiplier = if (isCompact) 0.56f else 0.48f,
+            reduceMotion = false
         )
-
-        for (i in 0 until activeCount) {
-            pxBuf[i] = normXBuf[i] * w
-            pyBuf[i] = normYBuf[i] * h
-            degreeBuf[i] = 0
-        }
-
-        val maxLinkDist = if (isCompact) 42f else 50f
-        val maxLinkDistSq = maxLinkDist * maxLinkDist
-        val linePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        val ySpeedScale = if (isCompact) 2.2f else 1.55f
+        val dotPaint = Paint(Paint.ANTI_ALIAS_FLAG)
+        val streakPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
             style = Paint.Style.STROKE
-            strokeWidth = 0.85f
             strokeCap = Paint.Cap.ROUND
         }
-        val linkRgb = DarkNavPalette.LinkBlue.toArgb() and 0x00FFFFFF
 
-        for (i in 0 until activeCount) {
-            val sI = NavParticleField.specs[i]
-            if (sI.isBokeh || alphaBuf[i] <= 0.03f || degreeBuf[i] >= NavParticleField.MAX_NODE_LINKS) continue
-            for (j in i + 1 until activeCount) {
-                val sJ = NavParticleField.specs[j]
-                if (sJ.isBokeh || alphaBuf[j] <= 0.03f || degreeBuf[j] >= NavParticleField.MAX_NODE_LINKS) continue
-                val dx = pxBuf[i] - pxBuf[j]
-                val dy = pyBuf[i] - pyBuf[j]
-                val distSq = dx * dx + dy * dy
-                if (distSq < maxLinkDistSq && distSq > 1f) {
-                    val dist = sqrt(distSq)
-                    val falloff = 1f - (dist / maxLinkDist)
-                    val lineAlpha = (falloff * 0.42f * (0.48f + 0.52f * min(alphaBuf[i], alphaBuf[j])))
-                        .coerceIn(0f, 0.44f)
-                    val aByte = (lineAlpha * 255f).roundToInt().coerceIn(0, 255)
-                    if (aByte > 2) {
-                        linePaint.color = (aByte shl 24) or linkRgb
-                        canvas.drawLine(pxBuf[i], pyBuf[i], pxBuf[j], pyBuf[j], linePaint)
-                        degreeBuf[i]++
-                        degreeBuf[j]++
-                        if (degreeBuf[i] >= NavParticleField.MAX_NODE_LINKS) break
-                    }
-                }
-            }
+        val largeSpecs = RisingTubeParticleField.largeSpecs
+        val largeLimit = counts.largeCount.coerceIn(0, largeSpecs.size)
+        for (i in 0 until largeLimit) {
+            val spec = largeSpecs[i]
+            val (nx, ny, alpha) = RisingTubeParticleField.sampleSpecAt(
+                spec = spec,
+                elapsedSec = elapsedSec,
+                timeOffsetSec = if (isCompact) 0.5f else 0f,
+                ySpeedScale = ySpeedScale,
+                columnConcentrated = false
+            )
+            if (alpha <= 0.03f) continue
+
+            val cx = nx * w
+            val cy = ny * h
+            val r = spec.radiusDp * (if (isCompact) 0.82f else 0.96f)
+            val plasmaRgb = RisingTubeParticleField.plasmaColorForMix(spec.hueMix).toArgb() and 0x00FFFFFF
+            val coreRgb = RisingTubeParticleField.coreColorForPreference(spec.corePreference).toArgb() and 0x00FFFFFF
+
+            val tailLen = (spec.trailFactor * h * spec.speedY * 1.45f).coerceIn(r * 1.0f, h * 0.14f)
+            val tailAlpha = (alpha * 0.24f * 255f).toInt().coerceIn(0, 72)
+            streakPaint.color = (tailAlpha shl 24) or plasmaRgb
+            streakPaint.strokeWidth = (r * 0.9f).coerceAtLeast(1.0f)
+            canvas.drawLine(cx, cy + tailLen, cx, cy, streakPaint)
+
+            val haloA = (alpha * 0.24f * 255f).toInt().coerceIn(0, 82)
+            dotPaint.color = (haloA shl 24) or plasmaRgb
+            canvas.drawCircle(cx, cy, r * 2.35f, dotPaint)
+
+            val bodyA = (alpha * 0.78f * 255f).toInt().coerceIn(0, 200)
+            dotPaint.color = (bodyA shl 24) or plasmaRgb
+            canvas.drawCircle(cx, cy, r, dotPaint)
+
+            val coreA = (alpha * 0.88f * 255f).toInt().coerceIn(0, 225)
+            dotPaint.color = (coreA shl 24) or coreRgb
+            canvas.drawCircle(cx, cy, (r * 0.44f).coerceAtLeast(0.75f), dotPaint)
         }
 
-        val dotPaint = Paint(Paint.ANTI_ALIAS_FLAG)
-        val iceRgb = DarkNavPalette.ParticleCoreIce.toArgb() and 0x00FFFFFF
+        val fineSpecs = RisingTubeParticleField.fineSpecs
+        val fineLimit = counts.fineCount.coerceIn(0, fineSpecs.size)
+        for (i in 0 until fineLimit) {
+            val spec = fineSpecs[i]
+            val (nx, ny, alpha) = RisingTubeParticleField.sampleSpecAt(
+                spec = spec,
+                elapsedSec = elapsedSec,
+                timeOffsetSec = if (isCompact) 0.5f else 0f,
+                ySpeedScale = ySpeedScale,
+                columnConcentrated = false
+            )
+            if (alpha <= 0.03f) continue
 
-        for (i in 0 until activeCount) {
-            val alpha = alphaBuf[i]
-            if (alpha <= 0.02f) continue
-            val spec = NavParticleField.specs[i]
-            val cx = pxBuf[i]
-            val cy = pyBuf[i]
-            val r = spec.radiusDp * (if (isCompact) 1.05f else 1.28f)
-            val colorRgb = NavParticleField.colorForMix(spec.hueMix).toArgb() and 0x00FFFFFF
+            val cx = nx * w
+            val cy = ny * h
+            val r = spec.radiusDp * (if (isCompact) 0.86f else 0.96f)
+            val plasmaRgb = RisingTubeParticleField.plasmaColorForMix(spec.hueMix).toArgb() and 0x00FFFFFF
+            val coreRgb = RisingTubeParticleField.coreColorForPreference(spec.corePreference).toArgb() and 0x00FFFFFF
 
-            // 外光晕
-            val haloA = (alpha * 0.28f * 255f).roundToInt().coerceIn(0, 96)
-            dotPaint.color = (haloA shl 24) or colorRgb
-            canvas.drawCircle(cx, cy, r * 2.5f, dotPaint)
+            if (spec.trailFactor > 0.009f) {
+                val tailLen = (spec.trailFactor * h * spec.speedY * 1.55f).coerceIn(1.8f, h * 0.12f)
+                val lineA = (alpha * 0.58f * 255f).toInt().coerceIn(0, 150)
+                streakPaint.color = (lineA shl 24) or plasmaRgb
+                streakPaint.strokeWidth = (r * 1.4f).coerceAtLeast(0.95f)
+                canvas.drawLine(cx, cy + tailLen, cx, cy, streakPaint)
 
-            if (!spec.isBokeh) {
-                val coreA = (alpha * 0.94f * 255f).roundToInt().coerceIn(0, 245)
-                dotPaint.color = (coreA shl 24) or colorRgb
-                canvas.drawCircle(cx, cy, r, dotPaint)
-
-                if (alpha > 0.44f) {
-                    val iceA = (alpha * 0.85f * 255f).roundToInt().coerceIn(0, 235)
-                    dotPaint.color = (iceA shl 24) or iceRgb
-                    canvas.drawCircle(cx, cy, (r * 0.48f).coerceAtLeast(0.75f), dotPaint)
-                }
+                val headA = (alpha * 0.88f * 255f).toInt().coerceIn(0, 225)
+                dotPaint.color = (headA shl 24) or coreRgb
+                canvas.drawCircle(cx, cy, (r * 0.9f).coerceAtLeast(0.75f), dotPaint)
             } else {
-                val bokehA = (alpha * 0.46f * 255f).roundToInt().coerceIn(0, 128)
-                dotPaint.color = (bokehA shl 24) or colorRgb
-                canvas.drawCircle(cx, cy, r * 1.48f, dotPaint)
+                val dotA = (alpha * 0.78f * 255f).toInt().coerceIn(0, 200)
+                dotPaint.color = (dotA shl 24) or plasmaRgb
+                canvas.drawCircle(cx, cy, r, dotPaint)
             }
         }
     }

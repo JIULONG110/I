@@ -149,19 +149,17 @@ fun RulesAndLogsScreen(
                         contentAlignment = Alignment.Center
                     ) {
                         BlueConstellationParticlesCanvas(
-                            particleCount = 20,
                             reduceMotion = reduceMotion,
-                            referenceWidthDp = 280f,
-                            linkMaxDistDp = 42f,
+                            densityMultiplier = 0.68f,
                             timeOffsetSec = index * 1.4f,
-                            intensity = if (active) 1.08f else 0.56f,
+                            intensity = if (active) 1.08f else 0.72f,
                             modifier = Modifier.matchParentSize()
                         )
                         Text(
                             text = title,
                             fontSize = 13.sp,
                             fontWeight = if (active) FontWeight.Bold else FontWeight.Medium,
-                            color = if (active) Color.White else Color(0xFFA9C0D8),
+                            color = if (active) Color.White else Color(0xFFD2C7FA),
                             maxLines = 1,
                             modifier = Modifier.padding(vertical = 9.dp)
                         )
@@ -267,7 +265,7 @@ private fun RulesConfigTab(
                         .clickable { onUpdateSettings { it.copy(blockAds = !settings.blockAds) } },
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Icon(Icons.Rounded.Block, null, tint = Color(0xFF59BAFF))
+                    Icon(Icons.Rounded.Block, null, tint = Color(0xFF4BE8FF))
                     Spacer(modifier = Modifier.width(12.dp))
                     Column(modifier = Modifier.weight(1f)) {
                         Text("拦截常见广告域名", fontSize = 14.sp, fontWeight = FontWeight.SemiBold, color = ProtoTextPrimary)
@@ -291,7 +289,7 @@ private fun RulesConfigTab(
                     enabled = !isUpdatingGeo,
                     modifier = Modifier.fillMaxWidth()
                 ) {
-                    Icon(Icons.Rounded.CloudDownload, null, tint = Color(0xFFB6E9FF), modifier = Modifier.size(18.dp))
+                    Icon(Icons.Rounded.CloudDownload, null, tint = Color(0xFFD7C8FF), modifier = Modifier.size(18.dp))
                     Spacer(modifier = Modifier.width(8.dp))
                     Text(
                         text = if (isUpdatingGeo) "正在下载最新规则库..." else "在线更新 GeoIP / GeoSite 规则库",
@@ -307,12 +305,11 @@ private fun RulesConfigTab(
             modifier = Modifier.fillMaxWidth(),
             cornerRadius = 24.dp,
             isActive = settings.perAppMode != PerAppMode.DISABLED,
-            particleCount = 24,
             seedOffsetSec = 2.1f
         ) {
             Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Icon(Icons.Rounded.Apps, null, tint = Color(0xFF59BAFF))
+                    Icon(Icons.Rounded.Apps, null, tint = Color(0xFF4BE8FF))
                     Spacer(modifier = Modifier.width(10.dp))
                     Column(modifier = Modifier.weight(1f)) {
                         Text("分应用代理", fontSize = 15.sp, fontWeight = FontWeight.Bold, color = ProtoTextPrimary)
@@ -637,8 +634,7 @@ fun PerAppSelectorScreen(
                         modifier = Modifier.fillMaxWidth(),
                         cornerRadius = 16.dp,
                         isActive = checked,
-                        accentBorder = if (checked) Color(0xCC46B5FF) else null,
-                        particleCount = 16,
+                        accentBorder = if (checked) Color(0xCC9F5EFF) else null,
                         seedOffsetSec = (idx % 12) * 0.4f,
                         onClick = { onTogglePackage(app.packageName) }
                     ) {

@@ -41,7 +41,7 @@
                 android:ellipsize="end"
                 android:maxLines="1"
                 android:singleLine="true"
-                android:textColor="#EFF7FF"
+                android:textColor="#F4EFFF"
                 android:textSize="12.5sp"
                 android:textStyle="bold" />
 
@@ -52,7 +52,7 @@
                 android:ellipsize="end"
                 android:maxLines="1"
                 android:singleLine="true"
-                android:textColor="#8FD4FF"
+                android:textColor="#88F2FF"
                 android:textSize="10.5sp" />
         </LinearLayout>
 

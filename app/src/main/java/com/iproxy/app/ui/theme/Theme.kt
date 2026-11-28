@@ -15,10 +15,12 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import com.iproxy.app.data.model.ThemeMode
 
-val CyanAccent = Color(0xFF53CAFF)
-val BrandBlue = Color(0xFF168BFF)
-val BrandDeepNavy = Color(0xFF050A14)
-val BrandCardDark = Color(0xFF0E192A)
+val CyanAccent = Color(0xFF4BE8FF)
+val BrandBlue = Color(0xFF2174FF)
+val BrandViolet = Color(0xFF8C3CFF)
+val BrandMagenta = Color(0xFFE82EC8)
+val BrandDeepNavy = Color(0xFF050814)
+val BrandCardDark = Color(0xFF0C0A1E)
 val ConnectedGreen = Color(0xFF10B981)
 val WarningAmber = Color(0xFFF59E0B)
 val ErrorRed = Color(0xFFEF4444)
@@ -46,55 +48,55 @@ data class LiquidThemePalette(
 private val DarkLiquidPalette = LiquidThemePalette(
     isDark = true,
     backdropColors = listOf(
-        Color(0xFF050912),
-        Color(0xFF08111F),
-        Color(0xFF050A14)
+        Color(0xFF050814),
+        Color(0xFF080E1E),
+        Color(0xFF050914)
     ),
-    ambientOrbPrimary = Color(0xFF0857AA),
-    ambientOrbSecondary = Color(0xFF063C87),
-    glassStart = Color(0xF51C293B),
-    glassMid = Color(0xFA0B1422),
-    glassEnd = Color(0xF50C1C34),
-    glassElevatedStart = Color(0xFC172739),
-    glassElevatedEnd = Color(0xFF08101C),
-    glassBorderTop = Color(0x75709ACA),
-    glassBorderBottom = Color(0x524679B5),
-    dockStart = Color(0xF5142334),
-    dockEnd = Color(0xFA08111E),
-    dockSelectedPill = Color(0x8F1779E6),
-    obsidianCoreTop = Color(0xFF1C293B),
-    obsidianCoreBottom = Color(0xFF08101C)
+    ambientOrbPrimary = Color(0xFF3E187C),
+    ambientOrbSecondary = Color(0xFF093A8A),
+    glassStart = Color(0xF5110F24),
+    glassMid = Color(0xFA090717),
+    glassEnd = Color(0xFC070A18),
+    glassElevatedStart = Color(0xFC141129),
+    glassElevatedEnd = Color(0xFF070614),
+    glassBorderTop = Color(0xA69F90EE),
+    glassBorderBottom = Color(0x703D78DB),
+    dockStart = Color(0xF7110D24),
+    dockEnd = Color(0xFC070A18),
+    dockSelectedPill = Color(0xDC6B2EFF),
+    obsidianCoreTop = Color(0xFF16112C),
+    obsidianCoreBottom = Color(0xFF070614)
 )
 
 val LocalLiquidPalette = staticCompositionLocalOf { DarkLiquidPalette }
 
 private val DarkColorScheme = darkColorScheme(
     primary = CyanAccent,
-    onPrimary = Color(0xFF031526),
-    primaryContainer = Color(0xFF12365E),
-    onPrimaryContainer = Color(0xFFEFF7FF),
+    onPrimary = Color(0xFF041022),
+    primaryContainer = Color(0xFF281856),
+    onPrimaryContainer = Color(0xFFF3ECFF),
     secondary = BrandBlue,
     onSecondary = Color(0xFFFFFFFF),
-    secondaryContainer = Color(0xFF142D4B),
-    onSecondaryContainer = Color(0xFFC0D4EA),
-    tertiary = Color(0xFF59BAFF),
-    onTertiary = Color(0xFF031526),
+    secondaryContainer = Color(0xFF19143A),
+    onSecondaryContainer = Color(0xFFD6CEFA),
+    tertiary = BrandMagenta,
+    onTertiary = Color(0xFFFFFFFF),
     background = BrandDeepNavy,
-    onBackground = Color(0xFFEFF7FF),
+    onBackground = Color(0xFFF2EEFF),
     surface = BrandCardDark,
-    onSurface = Color(0xFFEFF7FF),
-    surfaceVariant = Color(0xFF17263B),
-    onSurfaceVariant = Color(0xFF9FB2C9),
-    surfaceTint = BrandBlue,
-    inverseSurface = Color(0xFF142338),
-    inverseOnSurface = Color(0xFFEFF7FF),
-    outline = Color(0x75709ACA),
-    outlineVariant = Color(0x3B5D88B9),
-    surfaceContainerLowest = Color(0xFF050A14),
-    surfaceContainerLow = Color(0xFF0B1422),
-    surfaceContainer = Color(0xFF0E192A),
-    surfaceContainerHigh = Color(0xFF142338),
-    surfaceContainerHighest = Color(0xFF1C293B),
+    onSurface = Color(0xFFF2EEFF),
+    surfaceVariant = Color(0xFF14112B),
+    onSurfaceVariant = Color(0xFFAFA7D2),
+    surfaceTint = BrandViolet,
+    inverseSurface = Color(0xFF16122E),
+    inverseOnSurface = Color(0xFFF2EEFF),
+    outline = Color(0x9E9F90EE),
+    outlineVariant = Color(0x526A58C8),
+    surfaceContainerLowest = Color(0xFF050814),
+    surfaceContainerLow = Color(0xFF090717),
+    surfaceContainer = Color(0xFF0C0A1E),
+    surfaceContainerHigh = Color(0xFF141129),
+    surfaceContainerHighest = Color(0xFF1C1738),
     error = ErrorRed,
     onError = Color(0xFFFFFFFF),
     errorContainer = Color(0xFF3F1219),

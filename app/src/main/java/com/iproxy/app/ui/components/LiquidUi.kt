@@ -20,7 +20,6 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.PaddingValues
@@ -100,15 +99,15 @@ import kotlin.math.PI
 import kotlin.math.cos
 import kotlin.math.sin
 
-internal val ProtoTextPrimary = Color(0xFFEFF7FF)
-internal val ProtoTextSecondary = Color(0xFFAEBFD2)
-internal val ProtoTextMuted = Color(0xFF9FB2C9)
-internal val ProtoTextSubtle = Color(0xFF7890AA)
-internal val ProtoDividerBlue = Color(0x5C5B93D8)
-internal val ProtoAccentSky = Color(0xFF59BAFF)
+internal val ProtoTextPrimary = Color(0xFFF4EFFF)
+internal val ProtoTextSecondary = Color(0xFFC2B7E8)
+internal val ProtoTextMuted = Color(0xFFA99FD2)
+internal val ProtoTextSubtle = Color(0xFF837AA8)
+internal val ProtoDividerBlue = Color(0x637A6AD8)
+internal val ProtoAccentSky = Color(0xFF4BE8FF)
 
 /**
- * 深海军蓝动态光影底景（连接/断开均保持一致的低调深蓝光泽，内嵌全屏唯一共享帧时钟与环境微粒子）
+ * 深邃暗夜底景（页面空白处不散落额外粒子，粒子与光效仅严格呈现在各类 3D 玻璃容器内部）
  */
 @Suppress("UNUSED_PARAMETER")
 @Composable
@@ -118,28 +117,8 @@ fun LiquidBackdrop(
     content: @Composable () -> Unit
 ) {
     val palette = LocalLiquidPalette.current
-    val transition = rememberInfiniteTransition(label = "liquid_backdrop")
-    val driftA by transition.animateFloat(
-        initialValue = 0f,
-        targetValue = 1f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(durationMillis = 12000, easing = FastOutSlowInEasing),
-            repeatMode = RepeatMode.Reverse
-        ),
-        label = "driftA"
-    )
-    val driftB by transition.animateFloat(
-        initialValue = 0f,
-        targetValue = 1f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(durationMillis = 15000, easing = FastOutSlowInEasing),
-            repeatMode = RepeatMode.Reverse
-        ),
-        label = "driftB"
-    )
 
     ProvideParticleAnimationClock {
-        val reduceMotion = rememberReduceMotionState()
         Box(modifier = modifier.fillMaxSize()) {
             Canvas(modifier = Modifier.fillMaxSize()) {
                 drawRect(
@@ -149,68 +128,7 @@ fun LiquidBackdrop(
                         1.0f to palette.backdropColors[2]
                     )
                 )
-
-                val midGlowCenter = Offset(size.width * 0.50f, size.height * 0.33f)
-                drawCircle(
-                    brush = Brush.radialGradient(
-                        colors = listOf(Color(0x2E0C478F), Color.Transparent),
-                        center = midGlowCenter,
-                        radius = size.minDimension * 0.65f
-                    ),
-                    radius = size.minDimension * 0.65f,
-                    center = midGlowCenter
-                )
-
-                val bottomGlowCenter = Offset(size.width * 0.96f, size.height * 0.92f)
-                drawCircle(
-                    brush = Brush.radialGradient(
-                        colors = listOf(Color(0x330C3677), Color.Transparent),
-                        center = bottomGlowCenter,
-                        radius = size.minDimension * 0.72f
-                    ),
-                    radius = size.minDimension * 0.72f,
-                    center = bottomGlowCenter
-                )
-
-                val leftOrb = Offset(
-                    x = -size.width * 0.08f + size.width * 0.04f * driftA,
-                    y = size.height * (0.24f + 0.03f * driftB)
-                )
-                drawCircle(
-                    brush = Brush.radialGradient(
-                        colors = listOf(palette.ambientOrbPrimary.copy(alpha = 0.26f), Color.Transparent),
-                        center = leftOrb,
-                        radius = size.minDimension * 0.62f
-                    ),
-                    radius = size.minDimension * 0.62f,
-                    center = leftOrb
-                )
-
-                val rightOrb = Offset(
-                    x = size.width * (1.06f - 0.04f * driftB),
-                    y = size.height * (0.78f - 0.03f * driftA)
-                )
-                drawCircle(
-                    brush = Brush.radialGradient(
-                        colors = listOf(palette.ambientOrbSecondary.copy(alpha = 0.26f), Color.Transparent),
-                        center = rightOrb,
-                        radius = size.minDimension * 0.60f
-                    ),
-                    radius = size.minDimension * 0.60f,
-                    center = rightOrb
-                )
             }
-
-            // 全局轻薄环境星链粒子流（不喧宾夺主，保证页面留白区域也流动呼应）
-            BlueConstellationParticlesCanvas(
-                particleCount = 34,
-                reduceMotion = reduceMotion,
-                referenceWidthDp = 420f,
-                linkMaxDistDp = 64f,
-                timeOffsetSec = 1.7f,
-                intensity = 0.34f,
-                modifier = Modifier.fillMaxSize()
-            )
 
             CompositionLocalProvider(LocalContentColor provides ProtoTextPrimary) {
                 content()
@@ -220,8 +138,8 @@ fun LiquidBackdrop(
 }
 
 /**
- * 深石板蓝黑 3D 实体玻璃卡片：双层立体玻璃管壁 + 幽蓝折射焦散 + 持续高速蓝色流动粒子与星链
- * 无论处于高亮/开启态还是常态/关闭态，内部蓝色星链粒子始终流动，仅通过材质亮度与发光边框明确区分真实状态。
+ * 深色高级 3D 实体玻璃卡片：压暗内底色 + 双层紫/洋红/电蓝立体边框 + 容器内部等比例快速上冲流光粒子
+ * 无论处于高亮/开启态还是常态/关闭态，内部流光粒子始终快速向上冲动，同时清晰区分真实状态。
  */
 @Composable
 fun LiquidGlassCard(
@@ -238,7 +156,7 @@ fun LiquidGlassCard(
     val reduceMotion = rememberReduceMotionState()
     val shape = RoundedCornerShape(cornerRadius)
     val effectiveActive = isActive || accentBorder != null
-    val effectiveIntensity = if (effectiveActive) 1.02f else 0.58f
+    val effectiveIntensity = if (effectiveActive) 0.72f else 0.45f
 
     val clickableModifier = if (onClick != null) {
         Modifier.clickable(onClick = onClick)
@@ -264,10 +182,10 @@ fun LiquidGlassCard(
             BlueConstellationParticlesCanvas(
                 particleCount = particleCount,
                 reduceMotion = reduceMotion,
-                referenceWidthDp = 380f,
-                linkMaxDistDp = 48f,
+                densityMultiplier = 0.28f,
                 timeOffsetSec = seedOffsetSec,
                 intensity = effectiveIntensity,
+                radiusScale = 0.76f,
                 modifier = Modifier.matchParentSize()
             )
         }
@@ -348,7 +266,7 @@ fun PrototypeRoutingModeCard(
                 text = description,
                 fontSize = 11.sp,
                 lineHeight = 16.sp,
-                color = Color(0xFFAABBD0),
+                color = ProtoTextMuted,
                 modifier = Modifier
                     .padding(horizontal = 2.dp)
                     .heightIn(min = 17.dp)
@@ -368,7 +286,7 @@ private fun PrototypeModeButton(
 ) {
     val shape = RoundedCornerShape(13.dp)
     val textColor by animateColorAsState(
-        targetValue = if (selected) Color(0xFFFFFFFF) else Color(0xFFB4C8DE),
+        targetValue = if (selected) Color(0xFFFFFFFF) else Color(0xFFD6CEFA),
         animationSpec = tween(180),
         label = "modeBtnText"
     )
@@ -389,12 +307,11 @@ private fun PrototypeModeButton(
         contentAlignment = Alignment.Center
     ) {
         BlueConstellationParticlesCanvas(
-            particleCount = 20,
             reduceMotion = reduceMotion,
-            referenceWidthDp = 340f,
-            linkMaxDistDp = 42f,
+            densityMultiplier = 0.72f,
             timeOffsetSec = seedOffsetSec,
-            intensity = if (selected) 1.08f else 0.56f,
+            intensity = if (selected) 1.05f else 0.72f,
+            radiusScale = 0.88f,
             modifier = Modifier.matchParentSize()
         )
         Text(
@@ -409,8 +326,8 @@ private fun PrototypeModeButton(
 }
 
 /**
- * 3D 实体玻璃胶囊切换开关：无论处于开启态或关闭态，内部蓝色星链粒子都持续流动，
- * 同时通过轨道亮蓝玻璃 vs 深邃冷蓝玻璃、发光青环滑块位置让真实开关状态一眼可辨。
+ * 3D 实体玻璃横向胶囊开关：无论处于开启态或关闭态，均保持完整半圆两端与高速上冲粒子流，绝不因关闭而变灰或失去动效，
+ * 同时通过亮紫-电蓝发光玻璃滑道 vs 深靛紫玻璃、滑块左右位置及亮芯色彩对比，一眼清晰辨识真实开关状态。
  */
 @Composable
 fun PrototypeSwitch(
@@ -425,12 +342,12 @@ fun PrototypeSwitch(
         label = "switchThumb"
     )
     val thumbColor by animateColorAsState(
-        targetValue = if (checked) Color(0xFFF6FCFF) else Color(0xFF9BB3CE),
+        targetValue = if (checked) Color(0xFFFFECFC) else Color(0xFFC2BAEE),
         animationSpec = tween(220),
         label = "switchThumbColor"
     )
     val thumbRingColor by animateColorAsState(
-        targetValue = if (checked) Color(0xFF8BE2FF) else Color(0x804E7196),
+        targetValue = if (checked) Color(0xFF4BE8FF) else Color(0xCC916BFF),
         animationSpec = tween(220),
         label = "switchThumbRing"
     )
@@ -450,11 +367,9 @@ fun PrototypeSwitch(
         contentAlignment = Alignment.CenterStart
     ) {
         BlueConstellationParticlesCanvas(
-            particleCount = 12,
             reduceMotion = reduceMotion,
-            referenceWidthDp = 110f,
-            linkMaxDistDp = 26f,
-            intensity = if (checked) 1.15f else 0.62f,
+            densityMultiplier = 0.95f,
+            intensity = if (checked) 1.15f else 0.84f,
             radiusScale = 0.72f,
             modifier = Modifier.matchParentSize()
         )
@@ -473,14 +388,14 @@ fun PrototypeSwitch(
                 modifier = Modifier
                     .size(7.dp)
                     .clip(CircleShape)
-                    .background(if (checked) Color(0xFF1792FF) else Color(0xFF1C2D42))
+                    .background(if (checked) Color(0xFFE82EC8) else Color(0xFF281A58))
             )
         }
     }
 }
 
 /**
- * 3D 实体玻璃复选框（替换所有默认灰色 Material Checkbox）：勾选与未勾选状态均保留蓝色流动粒子。
+ * 3D 实体玻璃复选框（按控件尺寸等比例流动粒子）：勾选与未勾选状态均保持饱满紫蓝玻璃与快速上冲粒子。
  */
 @Composable
 fun GlassCheckbox(
@@ -505,11 +420,9 @@ fun GlassCheckbox(
         contentAlignment = Alignment.Center
     ) {
         BlueConstellationParticlesCanvas(
-            particleCount = 8,
             reduceMotion = reduceMotion,
-            referenceWidthDp = 90f,
-            linkMaxDistDp = 20f,
-            intensity = if (checked) 1.12f else 0.60f,
+            densityMultiplier = 0.95f,
+            intensity = if (checked) 1.12f else 0.78f,
             radiusScale = 0.62f,
             modifier = Modifier.matchParentSize()
         )
@@ -556,12 +469,10 @@ fun GlassActionButton(
         contentAlignment = Alignment.Center
     ) {
         BlueConstellationParticlesCanvas(
-            particleCount = 20,
             reduceMotion = reduceMotion,
-            referenceWidthDp = 360f,
-            linkMaxDistDp = 44f,
+            densityMultiplier = 0.68f,
             timeOffsetSec = seedOffsetSec,
-            intensity = if (enabled) 1.08f else 0.45f,
+            intensity = if (enabled) 1.05f else 0.62f,
             modifier = Modifier.matchParentSize()
         )
         Row(
@@ -570,7 +481,7 @@ fun GlassActionButton(
             verticalAlignment = Alignment.CenterVertically
         ) {
             CompositionLocalProvider(
-                LocalContentColor provides if (enabled) Color.White else ProtoTextSubtle
+                LocalContentColor provides if (enabled) Color.White else ProtoTextSecondary
             ) {
                 content()
             }
@@ -579,7 +490,7 @@ fun GlassActionButton(
 }
 
 /**
- * 3D 深海蓝玻璃次要按钮：替代普通 OutlinedButton，开关/禁用态均带立体蓝框与星链粒子流
+ * 3D 深紫靛蓝玻璃次要按钮：保留连续快速上冲粒子与高饱和立体边框
  */
 @Composable
 fun GlassSecondaryButton(
@@ -602,7 +513,7 @@ fun GlassSecondaryButton(
                     cornerRadiusDp = cornerRadius,
                     active = false,
                     elevated = enabled,
-                    accentBorder = if (enabled) Color(0x9E67B8F6) else Color(0x4D4D6F95),
+                    accentBorder = if (enabled) Color(0xBA948CFF) else Color(0x6B6E5DC4),
                     innerBevelInsetDp = 2.5.dp
                 )
             }
@@ -611,12 +522,10 @@ fun GlassSecondaryButton(
         contentAlignment = Alignment.Center
     ) {
         BlueConstellationParticlesCanvas(
-            particleCount = 16,
             reduceMotion = reduceMotion,
-            referenceWidthDp = 340f,
-            linkMaxDistDp = 42f,
+            densityMultiplier = 0.62f,
             timeOffsetSec = seedOffsetSec,
-            intensity = if (enabled) 0.72f else 0.36f,
+            intensity = if (enabled) 0.80f else 0.52f,
             modifier = Modifier.matchParentSize()
         )
         Row(
@@ -625,7 +534,7 @@ fun GlassSecondaryButton(
             verticalAlignment = Alignment.CenterVertically
         ) {
             CompositionLocalProvider(
-                LocalContentColor provides if (enabled) ProtoTextPrimary else ProtoTextSubtle
+                LocalContentColor provides if (enabled) ProtoTextPrimary else ProtoTextSecondary
             ) {
                 content()
             }
@@ -662,12 +571,10 @@ fun GlassGhostButton(
         contentAlignment = Alignment.Center
     ) {
         BlueConstellationParticlesCanvas(
-            particleCount = 10,
             reduceMotion = reduceMotion,
-            referenceWidthDp = 220f,
-            linkMaxDistDp = 34f,
+            densityMultiplier = 0.62f,
             timeOffsetSec = 2.1f,
-            intensity = if (enabled) 0.56f else 0.30f,
+            intensity = if (enabled) 0.72f else 0.48f,
             modifier = Modifier.matchParentSize()
         )
         Row(
@@ -676,7 +583,7 @@ fun GlassGhostButton(
             verticalAlignment = Alignment.CenterVertically
         ) {
             CompositionLocalProvider(
-                LocalContentColor provides if (enabled) Color(0xFFB5D8FA) else ProtoTextSubtle
+                LocalContentColor provides if (enabled) Color(0xFFD9CFFF) else ProtoTextMuted
             ) {
                 content()
             }
@@ -685,7 +592,7 @@ fun GlassGhostButton(
 }
 
 /**
- * 3D 玻璃迷你图标按钮（替换所有列表行/顶栏/日志/弹窗里裸露的灰色 IconButton）
+ * 3D 玻璃迷你图标按钮（按 30..36dp 尺寸等比例渲染快速上冲粒子，不拥挤不变灰）
  */
 @Composable
 fun GlassSmallIconButton(
@@ -697,7 +604,7 @@ fun GlassSmallIconButton(
     isHighlighted: Boolean = false,
     sizeDp: Dp = 32.dp,
     cornerRadius: Dp = 10.dp,
-    iconTint: Color = if (isHighlighted) Color.White else Color(0xFFC2E3FF)
+    iconTint: Color = if (isHighlighted) Color.White else Color(0xFFE0D4FF)
 ) {
     val reduceMotion = rememberReduceMotionState()
     val shape = RoundedCornerShape(cornerRadius)
@@ -713,16 +620,14 @@ fun GlassSmallIconButton(
                     innerBevelInsetDp = 1.8.dp
                 )
             }
-            .alpha(if (enabled) 1f else 0.45f)
+            .alpha(if (enabled) 1f else 0.62f)
             .clickable(enabled = enabled, role = Role.Button, onClick = onClick),
         contentAlignment = Alignment.Center
     ) {
         BlueConstellationParticlesCanvas(
-            particleCount = 10,
             reduceMotion = reduceMotion,
-            referenceWidthDp = 120f,
-            linkMaxDistDp = 28f,
-            intensity = if (isHighlighted) 1.0f else 0.62f,
+            densityMultiplier = 0.90f,
+            intensity = if (isHighlighted) 1.05f else 0.78f,
             radiusScale = 0.72f,
             modifier = Modifier.matchParentSize()
         )
@@ -737,7 +642,7 @@ fun GlassSmallIconButton(
 
 /**
  * 3D 玻璃可选胶囊标签（替换全部 FilterChip / 分组过滤 / 协议芯片 / 策略芯片 / 日志过滤）：
- * 选中与未选中均保持高速粒子流动，通过亮钴蓝实体发光 vs 深海低饱和玻璃一眼区分选中状态。
+ * 选中与未选中均保持高速向上流光粒子，通过亮紫-电蓝发光态 vs 深紫靛低眩光玻璃清晰区分真实选中态。
  */
 @Composable
 fun GlassSelectableChip(
@@ -766,12 +671,10 @@ fun GlassSelectableChip(
         contentAlignment = Alignment.Center
     ) {
         BlueConstellationParticlesCanvas(
-            particleCount = 16,
             reduceMotion = reduceMotion,
-            referenceWidthDp = 260f,
-            linkMaxDistDp = 38f,
+            densityMultiplier = 0.72f,
             timeOffsetSec = seedOffsetSec,
-            intensity = if (selected) 1.08f else 0.56f,
+            intensity = if (selected) 1.08f else 0.72f,
             radiusScale = 0.85f,
             modifier = Modifier.matchParentSize()
         )
@@ -779,7 +682,7 @@ fun GlassSelectableChip(
             text = label,
             fontSize = 12.sp,
             fontWeight = if (selected) FontWeight.Bold else FontWeight.Medium,
-            color = if (selected) Color.White else Color(0xFFB7CDE3),
+            color = if (selected) Color.White else Color(0xFFD6CEFA),
             maxLines = 1,
             modifier = Modifier.padding(horizontal = horizontalPadding, vertical = verticalPadding)
         )
@@ -787,7 +690,7 @@ fun GlassSelectableChip(
 }
 
 /**
- * 3D 暗蓝实体玻璃输入框（在可阅读深色玻璃底上嵌入微粒子玻璃框）
+ * 3D 暗紫靛实体玻璃输入框（在可阅读深色玻璃底上嵌入微粒子流光框）
  */
 @Composable
 fun GlassTextField(
@@ -818,11 +721,10 @@ fun GlassTextField(
             }
     ) {
         BlueConstellationParticlesCanvas(
-            particleCount = 18,
             reduceMotion = reduceMotion,
-            referenceWidthDp = 360f,
-            linkMaxDistDp = 42f,
-            intensity = 0.42f,
+            densityMultiplier = 0.34f,
+            intensity = 0.45f,
+            radiusScale = 0.72f,
             modifier = Modifier.matchParentSize()
         )
         OutlinedTextField(
@@ -831,7 +733,7 @@ fun GlassTextField(
             label = label?.let { text -> { Text(text) } },
             placeholder = placeholder?.let { text -> { Text(text) } },
             leadingIcon = leadingIcon?.let { icon ->
-                { Icon(imageVector = icon, contentDescription = null, tint = Color(0xFF79D1FF)) }
+                { Icon(imageVector = icon, contentDescription = null, tint = Color(0xFF4BE8FF)) }
             },
             singleLine = singleLine,
             minLines = minLines,
@@ -846,7 +748,7 @@ fun GlassTextField(
 }
 
 /**
- * 实体玻璃激光能量进度条（替代 LinearProgressIndicator，持续流动粒子 + 亮蓝充能波束）
+ * 实体横向玻璃管充能进度条（完整圆头胶囊 + 等比例粒子 + 紫洋红电蓝流光脉冲波）
  */
 @Composable
 fun GlassLoadingBar(
@@ -875,10 +777,8 @@ fun GlassLoadingBar(
             }
     ) {
         BlueConstellationParticlesCanvas(
-            particleCount = 18,
             reduceMotion = reduceMotion,
-            referenceWidthDp = 340f,
-            linkMaxDistDp = 36f,
+            densityMultiplier = 0.72f,
             intensity = 0.95f,
             radiusScale = 0.72f,
             modifier = Modifier.matchParentSize()
@@ -890,7 +790,7 @@ fun GlassLoadingBar(
                 val fillW = (w * progress.coerceIn(0f, 1f)).coerceAtLeast(h)
                 drawRoundRect(
                     brush = Brush.horizontalGradient(
-                        listOf(Color(0xD91477E6), Color(0xFF53D2FF))
+                        listOf(Color(0xE07B2EFF), Color(0xEBE82EC8), Color(0xFF3AEDFF))
                     ),
                     size = Size(fillW, h),
                     cornerRadius = CornerRadius(h / 2f, h / 2f)
@@ -900,7 +800,7 @@ fun GlassLoadingBar(
                 val left = sweep * w
                 drawRoundRect(
                     brush = Brush.horizontalGradient(
-                        colors = listOf(Color.Transparent, Color(0xFF42AEFF), Color(0xFF8BE7FF), Color.Transparent),
+                        colors = listOf(Color.Transparent, Color(0xFFE82EC8), Color(0xFF3AEDFF), Color.Transparent),
                         startX = left,
                         endX = left + beamW
                     ),
@@ -914,7 +814,7 @@ fun GlassLoadingBar(
 }
 
 /**
- * 3D 玻璃旋转全息加载指示器（替代圆形灰圈 CircularProgressIndicator）
+ * 3D 玻璃旋转全息加载指示器（紫-洋红-青流光弧 + 按卡片大小自适应比例粒子）
  */
 @Composable
 fun GlassLoadingIndicator(
@@ -937,7 +837,7 @@ fun GlassLoadingIndicator(
     if (compact) {
         Canvas(modifier = modifier.size(18.dp)) {
             drawArc(
-                color = Color(0x405D92C5),
+                color = Color(0x4D947AE6),
                 startAngle = 0f,
                 sweepAngle = 360f,
                 useCenter = false,
@@ -945,7 +845,7 @@ fun GlassLoadingIndicator(
             )
             drawArc(
                 brush = Brush.sweepGradient(
-                    listOf(Color.Transparent, Color(0xFF4EB7FF), Color(0xFF9DF0FF))
+                    listOf(Color.Transparent, Color(0xFFE82EC8), Color(0xFF4BE8FF))
                 ),
                 startAngle = angle,
                 sweepAngle = 220f,
@@ -959,8 +859,7 @@ fun GlassLoadingIndicator(
     LiquidGlassCard(
         modifier = modifier,
         cornerRadius = 22.dp,
-        isActive = false,
-        particleCount = 36
+        isActive = false
     ) {
         Column(
             modifier = Modifier
@@ -979,23 +878,21 @@ fun GlassLoadingIndicator(
                 contentAlignment = Alignment.Center
             ) {
                 BlueConstellationParticlesCanvas(
-                    particleCount = 14,
                     reduceMotion = reduceMotion,
-                    referenceWidthDp = 120f,
-                    linkMaxDistDp = 28f,
+                    densityMultiplier = 0.85f,
                     intensity = 1.0f,
                     modifier = Modifier.matchParentSize()
                 )
                 Canvas(modifier = Modifier.size(34.dp)) {
                     drawArc(
-                        color = Color(0x4D79D1FF),
+                        color = Color(0x52B588FF),
                         startAngle = 0f,
                         sweepAngle = 360f,
                         useCenter = false,
                         style = Stroke(width = 2.4.dp.toPx(), cap = StrokeCap.Round)
                     )
                     drawArc(
-                        color = Color(0xFF8BE7FF),
+                        color = Color(0xFFFFDDF6),
                         startAngle = angle,
                         sweepAngle = 150f,
                         useCenter = false,
@@ -1017,7 +914,7 @@ fun GlassLoadingIndicator(
 }
 
 /**
- * 3D 实体玻璃空状态卡片（替代各列表/日志页的静态灰色文字空态）
+ * 3D 实体玻璃空状态卡片（内置完整圆头胶囊粒子容器）
  */
 @Composable
 fun GlassEmptyStateCard(
@@ -1031,7 +928,6 @@ fun GlassEmptyStateCard(
         modifier = modifier.fillMaxWidth(),
         cornerRadius = 24.dp,
         isActive = false,
-        particleCount = 34,
         seedOffsetSec = 1.9f
     ) {
         Column(
@@ -1043,19 +939,17 @@ fun GlassEmptyStateCard(
         ) {
             Box(
                 modifier = Modifier
-                    .size(width = 86.dp, height = 42.dp)
+                    .size(width = 104.dp, height = 38.dp)
                     .clip(CircleShape)
                     .drawBehind {
-                        drawGlassCapsule3D(cornerRadiusDp = 21.dp, active = true, innerBevelInsetDp = 2.5.dp)
+                        drawGlassCapsule3D(cornerRadiusDp = 19.dp, active = true, innerBevelInsetDp = 2.5.dp)
                     },
                 contentAlignment = Alignment.Center
             ) {
                 BlueConstellationParticlesCanvas(
-                    particleCount = 24,
                     reduceMotion = reduceMotion,
-                    referenceWidthDp = 180f,
-                    linkMaxDistDp = 36f,
-                    intensity = 1.05f,
+                    densityMultiplier = 0.90f,
+                    intensity = 1.08f,
                     modifier = Modifier.matchParentSize()
                 )
             }
@@ -1089,7 +983,7 @@ fun GlassDivider(modifier: Modifier = Modifier) {
             .height(1.dp)
             .background(
                 Brush.horizontalGradient(
-                    listOf(Color.Transparent, Color(0x6E5D98D8), Color.Transparent)
+                    listOf(Color.Transparent, Color(0x788F6CE8), Color(0x6E3EB8FF), Color.Transparent)
                 )
             )
     )
@@ -1097,7 +991,7 @@ fun GlassDivider(modifier: Modifier = Modifier) {
 
 /**
  * 统一全屏主题 3D 玻璃弹窗（替换所有系统灰色/哑光 AlertDialog）：
- * 内置独立帧时钟，确保在 Android 独立 Dialog 窗口中同样保持流畅高频蓝色星链粒子流动。
+ * 压暗内部底色 + 饱和紫/洋红/电蓝边 + 等比例高速上冲粒子
  */
 @Composable
 fun GlassDialog(
@@ -1137,17 +1031,16 @@ fun GlassDialog(
                                 cornerRadiusDp = 26.dp,
                                 active = false,
                                 elevated = true,
-                                accentBorder = Color(0xB86CC3FF),
+                                accentBorder = Color(0xBFA28EFF),
                                 innerBevelInsetDp = 3.5.dp
                             )
                         }
                 ) {
                     BlueConstellationParticlesCanvas(
-                        particleCount = 52,
                         reduceMotion = reduceMotion,
-                        referenceWidthDp = 400f,
-                        linkMaxDistDp = 50f,
-                        intensity = 0.78f,
+                        densityMultiplier = 0.34f,
+                        intensity = 0.46f,
+                        radiusScale = 0.74f,
                         modifier = Modifier.matchParentSize()
                     )
                     Column(
@@ -1166,7 +1059,7 @@ fun GlassDialog(
                                     .clip(CircleShape)
                                     .background(
                                         Brush.verticalGradient(
-                                            listOf(Color(0xFF7BE3FF), Color(0xFF1779E6))
+                                            listOf(Color(0xFFE82EC8), Color(0xFF4BE8FF))
                                         )
                                     )
                             )
@@ -1215,7 +1108,7 @@ fun GlassDialog(
 }
 
 /**
- * 3D 玻璃浮动菜单（带独立帧时钟与全菜单蓝色流动星链背景，替代灰暗平面 DropdownMenu）
+ * 3D 玻璃浮动菜单（带独立帧时钟与全菜单等比例上冲紫/洋红/电蓝粒子流）
  */
 @Composable
 fun GlassDropdownMenu(
@@ -1228,9 +1121,9 @@ fun GlassDropdownMenu(
     DropdownMenu(
         expanded = expanded,
         onDismissRequest = onDismissRequest,
-        containerColor = Color(0xFF07111F),
+        containerColor = Color(0xFF090717),
         shape = shape,
-        border = BorderStroke(1.2.dp, Color(0xCC6EC3FF)),
+        border = BorderStroke(1.2.dp, Color(0xCC9D8BFF)),
         tonalElevation = 0.dp,
         shadowElevation = 0.dp,
         modifier = modifier
@@ -1245,17 +1138,16 @@ fun GlassDropdownMenu(
                             cornerRadiusDp = 18.dp,
                             active = false,
                             elevated = true,
-                            accentBorder = Color(0xA66EC3FF),
+                            accentBorder = Color(0xB39E8FFF),
                             innerBevelInsetDp = 2.5.dp
                         )
                     }
             ) {
                 BlueConstellationParticlesCanvas(
-                    particleCount = 44,
                     reduceMotion = reduceMotion,
-                    referenceWidthDp = 280f,
-                    linkMaxDistDp = 48f,
-                    intensity = 0.85f,
+                    densityMultiplier = 0.36f,
+                    intensity = 0.50f,
+                    radiusScale = 0.74f,
                     modifier = Modifier.matchParentSize()
                 )
                 Column(
@@ -1277,7 +1169,7 @@ fun GlassDropdownItem(
     text: String,
     onClick: () -> Unit,
     leadingIcon: ImageVector? = null,
-    accentTint: Color = Color(0xFF66CAFF),
+    accentTint: Color = Color(0xFF4BE8FF),
     badge: String? = null
 ) {
     val rowShape = RoundedCornerShape(12.dp)
@@ -1285,8 +1177,8 @@ fun GlassDropdownItem(
         modifier = Modifier
             .fillMaxWidth()
             .clip(rowShape)
-            .background(Color(0x3D122640), rowShape)
-            .border(0.75.dp, Color(0x4768A6E0), rowShape)
+            .background(Color(0x47151030), rowShape)
+            .border(0.75.dp, Color(0x528D78E8), rowShape)
             .clickable(onClick = onClick)
             .padding(horizontal = 12.dp, vertical = 10.dp),
         verticalAlignment = Alignment.CenterVertically,
@@ -1311,15 +1203,15 @@ fun GlassDropdownItem(
             Box(
                 modifier = Modifier
                     .clip(RoundedCornerShape(8.dp))
-                    .background(Color(0x521B6DC8))
-                    .border(0.75.dp, Color(0x7379D1FF), RoundedCornerShape(8.dp))
+                    .background(Color(0x6649249B))
+                    .border(0.75.dp, Color(0x884BE8FF), RoundedCornerShape(8.dp))
                     .padding(horizontal = 6.dp, vertical = 2.dp)
             ) {
                 Text(
                     text = badge,
                     fontSize = 10.sp,
                     fontWeight = FontWeight.SemiBold,
-                    color = Color(0xFFAEEBFF)
+                    color = Color(0xFFFFDDF6)
                 )
             }
         }
@@ -1327,26 +1219,26 @@ fun GlassDropdownItem(
 }
 
 /**
- * 暗黑玻璃主按钮与输入框配色助手，避免任何浅色/紫色/灰色默认样式
+ * 暗黑玻璃主按钮与输入框配色助手（保持紫-洋红-电蓝基调与清晰反差）
  */
 @Composable
 fun prototypePrimaryButtonColors(): ButtonColors = ButtonDefaults.buttonColors(
-    containerColor = Color(0xFF168BFF),
+    containerColor = Color(0xFF5D2BFF),
     contentColor = Color(0xFFFFFFFF),
-    disabledContainerColor = Color(0xFF1B2B41),
-    disabledContentColor = Color(0xFF6B819B)
+    disabledContainerColor = Color(0xFF171330),
+    disabledContentColor = Color(0xFF837AA8)
 )
 
 @Composable
 fun prototypeTextFieldColors(): TextFieldColors = OutlinedTextFieldDefaults.colors(
     focusedTextColor = ProtoTextPrimary,
     unfocusedTextColor = ProtoTextPrimary,
-    cursorColor = Color(0xFF53CAFF),
-    focusedBorderColor = Color(0xCC62CEFF),
-    unfocusedBorderColor = Color(0x5E6295CA),
-    focusedContainerColor = Color(0x88060F1D),
-    unfocusedContainerColor = Color(0x73060E1B),
-    focusedLabelColor = Color(0xFF79D1FF),
+    cursorColor = Color(0xFF4BE8FF),
+    focusedBorderColor = Color(0xCC9D7AFF),
+    unfocusedBorderColor = Color(0x6E6C5AC8),
+    focusedContainerColor = Color(0x8F080614),
+    unfocusedContainerColor = Color(0x7D070512),
+    focusedLabelColor = Color(0xFFD9C7FF),
     unfocusedLabelColor = ProtoTextMuted,
     focusedPlaceholderColor = ProtoTextSubtle,
     unfocusedPlaceholderColor = ProtoTextSubtle
@@ -1596,9 +1488,9 @@ fun BlackBrandLogo(
     val shape = RoundedCornerShape(size * 0.26f)
     val borderBrush = Brush.linearGradient(
         colors = if (accentGlow != null) {
-            listOf(accentGlow.copy(alpha = 0.88f), Color(0x55709ACA))
+            listOf(accentGlow.copy(alpha = 0.88f), Color(0x884BE8FF))
         } else {
-            listOf(Color(0x6679D1FF), Color(0x2E4679B5))
+            listOf(Color(0x889F90EE), Color(0x554BE8FF))
         }
     )
 

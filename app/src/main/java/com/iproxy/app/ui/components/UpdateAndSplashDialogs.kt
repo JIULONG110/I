@@ -10,7 +10,6 @@ import androidx.compose.animation.scaleIn
 import androidx.compose.animation.scaleOut
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -86,42 +85,65 @@ fun SplashBrandOverlay(
                 .fillMaxSize()
                 .background(
                     Brush.verticalGradient(
-                        0.0f to Color(0xFF050912),
-                        0.58f to Color(0xFF08111F),
-                        1.0f to Color(0xFF050A14)
+                        0.0f to Color(0xFF050814),
+                        0.58f to Color(0xFF080E1E),
+                        1.0f to Color(0xFF050914)
                     )
                 ),
             contentAlignment = Alignment.Center
         ) {
-            BlueConstellationParticlesCanvas(
-                particleCount = 68,
-                reduceMotion = reduceMotion,
-                referenceWidthDp = 400f,
-                linkMaxDistDp = 56f,
-                intensity = 0.88f,
-                modifier = Modifier.fillMaxSize()
-            )
             Column(
                 horizontalAlignment = Alignment.CenterHorizontally,
                 modifier = Modifier.scale(logoScale)
             ) {
-                BlackBrandLogo(
-                    size = 96.dp,
-                    accentGlow = Color(0xFF53CAFF)
-                )
+                Box(
+                    modifier = Modifier
+                        .size(width = 132.dp, height = 216.dp)
+                        .clip(RoundedCornerShape(66.dp))
+                        .background(
+                            Brush.verticalGradient(
+                                0.0f to Color(0xF5110E24),
+                                0.55f to Color(0xFA080716),
+                                1.0f to Color(0xFC070A1A)
+                            )
+                        )
+                        .border(
+                            width = 1.6.dp,
+                            brush = Brush.linearGradient(
+                                listOf(Color(0xE8E6D6FF), Color(0xB8C74EFF), Color(0xC94BE8FF))
+                            ),
+                            shape = RoundedCornerShape(66.dp)
+                        ),
+                    contentAlignment = Alignment.Center
+                ) {
+                    BlueConstellationParticlesCanvas(
+                        reduceMotion = reduceMotion,
+                        densityMultiplier = 0.85f,
+                        intensity = 1.05f,
+                        columnConcentrated = true,
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .padding(4.dp)
+                            .clip(RoundedCornerShape(62.dp))
+                    )
+                    BlackBrandLogo(
+                        size = 84.dp,
+                        accentGlow = Color(0xFFB56CFF)
+                    )
+                }
                 Spacer(modifier = Modifier.height(18.dp))
                 Text(
                     text = "I",
                     fontSize = 34.sp,
                     fontWeight = FontWeight.Black,
-                    color = Color(0xFFEFF7FF),
+                    color = Color(0xFFF4EFFF),
                     letterSpacing = 2.sp
                 )
                 Spacer(modifier = Modifier.height(6.dp))
                 Text(
                     text = if (isCheckingUpdate) "正在检查版本更新..." else "极简加密代理",
                     style = MaterialTheme.typography.bodySmall,
-                    color = Color(0xFF9FB2C9)
+                    color = Color(0xFFA99FD2)
                 )
             }
         }
@@ -162,7 +184,7 @@ fun AppUpdateDialog(
                 Text(
                     text = "v${BuildConfig.VERSION_NAME} → ${updateInfo.tagName}",
                     style = MaterialTheme.typography.labelLarge,
-                    color = Color(0xFF79D1FF),
+                    color = Color(0xFF4BE8FF),
                     fontWeight = FontWeight.SemiBold
                 )
 

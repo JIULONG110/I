@@ -1,6 +1,5 @@
 package com.iproxy.app.ui.screens
 
-import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -277,7 +276,7 @@ fun SettingsScreen(
                         Icon(
                             Icons.Rounded.SystemUpdate,
                             contentDescription = null,
-                            tint = Color(0xFFB6E9FF),
+                            tint = Color(0xFFD9CFFF),
                             modifier = Modifier.size(18.dp)
                         )
                     }
@@ -355,7 +354,7 @@ private fun SettingToggleRow(
         Column(modifier = Modifier.weight(1f)) {
             Text(title, fontSize = 14.sp, fontWeight = FontWeight.SemiBold, color = ProtoTextPrimary)
             Spacer(modifier = Modifier.height(4.dp))
-            Text(subtitle, fontSize = 11.sp, color = Color(0xFF92A7BF))
+            Text(subtitle, fontSize = 11.sp, color = ProtoTextMuted)
         }
         Spacer(modifier = Modifier.width(12.dp))
         PrototypeSwitch(checked = checked, onCheckedChange = onCheckedChange)
@@ -389,7 +388,7 @@ private fun UtilityActionRow(
             Icon(
                 imageVector = Icons.Rounded.ChevronRight,
                 contentDescription = null,
-                tint = Color(0xFF9AD5FF),
+                tint = Color(0xFF4BE8FF),
                 modifier = Modifier.size(16.dp)
             )
         }

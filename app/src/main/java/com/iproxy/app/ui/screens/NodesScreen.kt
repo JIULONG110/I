@@ -58,17 +58,15 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.foundation.border
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import com.iproxy.app.core.util.FormatUtils
 import com.iproxy.app.data.model.ProtocolType
 import com.iproxy.app.data.model.ServerNode
@@ -290,7 +288,7 @@ fun NodesScreen(
                         GlassDropdownItem(
                             text = "添加自定义配置",
                             leadingIcon = Icons.Rounded.Code,
-                            accentTint = Color(0xFF79D1FF),
+                            accentTint = Color(0xFFD0A8FF),
                             onClick = {
                                 showAddMenu = false
                                 activeEditor = ActiveNodeEditor.CustomJson(isOutbound = false)
@@ -299,7 +297,7 @@ fun NodesScreen(
                         GlassDropdownItem(
                             text = "添加策略组",
                             leadingIcon = Icons.Rounded.Tune,
-                            accentTint = Color(0xFF79D1FF),
+                            accentTint = Color(0xFFD0A8FF),
                             onClick = {
                                 showAddMenu = false
                                 activeEditor = ActiveNodeEditor.PolicyGroup()
@@ -308,7 +306,7 @@ fun NodesScreen(
                         GlassDropdownItem(
                             text = "添加链式代理",
                             leadingIcon = Icons.Rounded.Route,
-                            accentTint = Color(0xFF79D1FF),
+                            accentTint = Color(0xFFD0A8FF),
                             onClick = {
                                 showAddMenu = false
                                 activeEditor = ActiveNodeEditor.ProxyChain()
@@ -317,7 +315,7 @@ fun NodesScreen(
                         GlassDropdownItem(
                             text = "添加自定义出站",
                             leadingIcon = Icons.Rounded.Dns,
-                            accentTint = Color(0xFF79D1FF),
+                            accentTint = Color(0xFFD0A8FF),
                             onClick = {
                                 showAddMenu = false
                                 activeEditor = ActiveNodeEditor.CustomJson(isOutbound = true)
@@ -547,7 +545,7 @@ fun NodesScreen(
                         Box(
                             modifier = Modifier
                                 .clip(RoundedCornerShape(16.dp))
-                                .border(1.2.dp, Color(0xBD78D5FF), RoundedCornerShape(16.dp))
+                                .border(1.2.dp, Color(0xC89E8EFF), RoundedCornerShape(16.dp))
                                 .padding(6.dp)
                         ) {
                             Image(
@@ -596,7 +594,7 @@ fun NodesScreen(
 }
 
 /**
- * 节点顶栏 5 枚蓝色玻璃功能按钮：保持原尺寸 (36dp)、圆角 (12dp)、间距 (6dp) 与统一高饱和蓝色立体质感，内嵌流动蓝色粒子。
+ * 节点顶栏 5 枚实体玻璃功能按钮：保持原尺寸 (36dp)、圆角 (12dp)、间距 (6dp) 与统一高饱和紫洋红电蓝立体发光样式及等比例上冲粒子。
  */
 @Composable
 private fun DockActionIconButton(
@@ -608,28 +606,28 @@ private fun DockActionIconButton(
 ) {
     val reduceMotion = rememberReduceMotionState()
     val shape = RoundedCornerShape(12.dp)
-    val bgBrush = Brush.linearGradient(listOf(Color(0xCC1779E6), Color(0xE0074097)))
     Box(
         modifier = Modifier
             .size(36.dp)
             .clip(shape)
-            .background(bgBrush, shape)
-            .border(
-                width = 1.dp,
-                color = Color(0xD179D1FF),
-                shape = shape
-            )
-            .alpha(if (enabled) 1f else 0.6f)
+            .drawBehind {
+                drawGlassCapsule3D(
+                    cornerRadiusDp = 12.dp,
+                    active = true,
+                    elevated = true,
+                    accentBorder = Color(0xDB9E8CFF),
+                    innerBevelInsetDp = 2.dp
+                )
+            }
+            .alpha(if (enabled) 1f else 0.72f)
             .clickable(enabled = enabled, onClick = onClick),
         contentAlignment = Alignment.Center
     ) {
         BlueConstellationParticlesCanvas(
-            particleCount = 12,
             reduceMotion = reduceMotion,
-            referenceWidthDp = 120f,
-            linkMaxDistDp = 28f,
+            densityMultiplier = 0.90f,
             timeOffsetSec = seedOffsetSec,
-            intensity = 0.95f,
+            intensity = 1.05f,
             radiusScale = 0.72f,
             modifier = Modifier.matchParentSize()
         )
@@ -715,13 +713,13 @@ private fun NodeItemCard(
     onShareQr: () -> Unit,
     onDelete: () -> Unit
 ) {
+    val reduceMotion = rememberReduceMotionState()
     LiquidGlassCard(
         modifier = Modifier.fillMaxWidth(),
         cornerRadius = 21.dp,
         elevated = isSelected,
         isActive = isSelected,
-        accentBorder = if (isSelected) Color(0xE646B5FF) else null,
-        particleCount = 22,
+        accentBorder = if (isSelected) Color(0xEB9F5EFF) else null,
         seedOffsetSec = seedOffsetSec,
         onClick = onSelect
     ) {
@@ -744,6 +742,13 @@ private fun NodeItemCard(
                     },
                 contentAlignment = Alignment.Center
             ) {
+                BlueConstellationParticlesCanvas(
+                    reduceMotion = reduceMotion,
+                    densityMultiplier = 0.95f,
+                    intensity = if (isSelected) 1.12f else 0.78f,
+                    radiusScale = 0.62f,
+                    modifier = Modifier.matchParentSize()
+                )
                 if (isSelected) {
                     Icon(
                         imageVector = Icons.Rounded.Check,
@@ -783,13 +788,13 @@ private fun NodeItemCard(
                         Text(
                             text = node.badgeText(),
                             fontSize = 11.sp,
-                            color = Color(0xFFB6E1FF)
+                            color = Color(0xFFD9CFFF)
                         )
                     }
                     Text(
                         text = node.displayAddressSummary(),
                         fontSize = 11.sp,
-                        color = Color(0xFF9EAFC3),
+                        color = Color(0xFFA99FD2),
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
                         modifier = Modifier.weight(1f, fill = false)

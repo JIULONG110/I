@@ -10,7 +10,6 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -529,7 +528,7 @@ fun ProxyChainEditorDialog(
                     Text(
                         text = "提示：链式代理建议至少包含 2 跳（前置入口 -> 出口落地）。",
                         style = MaterialTheme.typography.labelSmall,
-                        color = Color(0xFF79D1FF)
+                        color = Color(0xFF4BE8FF)
                     )
                 }
             }
@@ -1293,7 +1292,7 @@ private fun OrderedChildNodesList(
                     Text(
                         text = labelPrefix(idx, childIds.size),
                         style = MaterialTheme.typography.labelSmall,
-                        color = Color(0xFF7BE0FF),
+                        color = Color(0xFF4BE8FF),
                         fontWeight = FontWeight.Bold
                     )
                     Spacer(modifier = Modifier.width(4.dp))
@@ -1386,8 +1385,7 @@ private fun MultiNodePickerDialog(
                         modifier = Modifier.fillMaxWidth(),
                         cornerRadius = 15.dp,
                         isActive = isChecked,
-                        accentBorder = if (isChecked) Color(0xCC46B5FF) else null,
-                        particleCount = 16,
+                        accentBorder = if (isChecked) Color(0xCC9F5EFF) else null,
                         seedOffsetSec = idx * 0.45f,
                         onClick = {
                             if (allowDuplicates) {
@@ -1437,9 +1435,9 @@ private fun MultiNodePickerDialog(
                                 )
                             }
                             if (allowDuplicates) {
-                                Icon(Icons.Rounded.Add, contentDescription = "添加", tint = Color(0xFF79D1FF), modifier = Modifier.size(18.dp))
+                                Icon(Icons.Rounded.Add, contentDescription = "添加", tint = Color(0xFF4BE8FF), modifier = Modifier.size(18.dp))
                             } else if (isChecked) {
-                                Icon(Icons.Rounded.Check, contentDescription = null, tint = Color(0xFF8BE5FF), modifier = Modifier.size(18.dp))
+                                Icon(Icons.Rounded.Check, contentDescription = null, tint = Color(0xFFFFDDF6), modifier = Modifier.size(18.dp))
                             }
                         }
                     }

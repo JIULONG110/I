@@ -8,7 +8,6 @@ import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
@@ -99,7 +98,6 @@ import com.iproxy.app.ui.theme.ConnectedGreen
 import com.iproxy.app.ui.theme.ErrorRed
 import com.iproxy.app.ui.theme.WarningAmber
 import kotlinx.coroutines.delay
-import kotlin.math.min
 
 /**
  * 首页连接仪表盘：全矢量 3D 实体玻璃反应舱试管（无静态图、开关两态一致高亮且内部不置图标文字）+ 实时网速 + 当前节点 + 分流卡
@@ -142,9 +140,9 @@ fun HomeScreen(
         val narrowWidth = maxWidth < 360.dp
         val sidePadding = if (narrowWidth) 13.dp else 18.dp
         val heroSidePadding = (sidePadding - 14.dp).coerceAtLeast(2.dp)
-        val heroHeight = (maxHeight * 0.313f).coerceIn(
-            if (compactHeight) 224.dp else 252.dp,
-            318.dp
+        val heroHeight = (maxHeight * 0.345f).coerceIn(
+            if (compactHeight) 224.dp else 250.dp,
+            306.dp
         )
 
         Column(
@@ -154,14 +152,14 @@ fun HomeScreen(
                 .statusBarsPadding(),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            Spacer(modifier = Modifier.height(if (compactHeight) 14.dp else 30.dp))
+            Spacer(modifier = Modifier.height(if (compactHeight) 14.dp else 24.dp))
 
-            // 中央纯运行时渲染 3D 实体玻璃反应舱试管 + 84 颗高速蓝色流动星链粒子（不显示文字与图标，两态一致透亮）
+            // 中央纯矢量 3D 竖直实体玻璃试管 + 580 细 & 78 流光高速上冲粒子（开关两态亮度与动效一致，内部无文字与图标）
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(horizontal = heroSidePadding)
-                    .padding(bottom = 6.dp)
+                    .padding(bottom = 8.dp)
                     .height(heroHeight)
             ) {
                 ReactorHeroCylinder(
@@ -273,8 +271,10 @@ fun HomeScreen(
 }
 
 /**
- * 纯 Compose Canvas 运行时构建的 3D 圆角玻璃实体试管反应舱：
- * 全程不依赖静态贴图/GIF，内部持续流动 84 颗多层次蓝青粒子与星链连线；两态质感亮度一致，无文字或图标遮挡。
+ * 1:1 复刻 6 秒预览视频的高级 3D 竖直实体玻璃试管：
+ * - 完整半圆端头竖直试管造型，略压暗的深紫-靛黑内底色
+ * - 内部高速上冲 580 颗细微流光火花 + 78 颗较大景深流光粒子（紫/洋红/电蓝饱和色彩 + 粉白/青色亮芯）
+ * - 多层石英玻璃纵肋高光、顶部弯月折射与底部冰青/洋红焦散环边；粒子仅留在试管腔内，两态亮度一致且无内部图标文字
  */
 @Composable
 private fun ReactorHeroCylinder(
@@ -292,168 +292,164 @@ private fun ReactorHeroCylinder(
     }
 
     BoxWithConstraints(modifier = modifier, contentAlignment = Alignment.Center) {
-        val heroW = maxWidth
-        val heroH = maxHeight
-        val chamberWidth = min(heroW.value * 0.64f, heroH.value * 0.88f).coerceAtLeast(180f).dp
-        val chamberHeight = (heroH * 0.86f).coerceAtLeast(184.dp)
+        val tubeHeight = (maxHeight * 0.94f).coerceIn(216.dp, 286.dp)
+        val tubeWidth = (tubeHeight * 0.295f).coerceIn(68.dp, 86.dp)
 
-        // 1. 底部扩散环境深海钴蓝光池
-        Canvas(modifier = Modifier.fillMaxSize()) {
-            val baseGlowCenter = Offset(size.width * 0.5f, size.height * 0.84f)
-            drawOval(
-                brush = Brush.radialGradient(
-                    colors = listOf(
-                        Color(0x541B87FF),
-                        Color(0x280C4AA8),
-                        Color.Transparent
-                    ),
-                    center = baseGlowCenter,
-                    radius = chamberWidth.toPx() * 0.82f
-                ),
-                topLeft = Offset(
-                    baseGlowCenter.x - chamberWidth.toPx() * 0.78f,
-                    baseGlowCenter.y - chamberHeight.toPx() * 0.20f
-                ),
-                size = Size(chamberWidth.toPx() * 1.56f, chamberHeight.toPx() * 0.40f)
-            )
-        }
-
-        // 2. 实体 3D 蓝色玻璃试管主体 + 84 颗高速流动星链粒子
+        // 1. 竖直实体玻璃试管主体 + 580 细 + 78 流光高速上冲粒子
         Box(
             modifier = Modifier
-                .size(width = chamberWidth, height = chamberHeight)
-                .clip(RoundedCornerShape(34.dp))
+                .size(width = tubeWidth, height = tubeHeight)
+                .clip(CircleShape)
         ) {
-            // 玻璃底层立体体光与内腔景深
+            // 略压暗的深紫靛蓝内腔体底板与内部聚焦等离子光柱
             Canvas(modifier = Modifier.fillMaxSize()) {
                 val w = size.width
                 val h = size.height
-                val corner = CornerRadius(34.dp.toPx(), 34.dp.toPx())
+                val capR = CornerRadius(w * 0.5f, w * 0.5f)
 
-                // 主体深海玻璃圆柱体渐变
+                // 略压暗的深邃宇宙紫-靛蓝玻璃基底（保持高饱和粒子色彩浓、轮廓锐利）
                 drawRoundRect(
                     brush = Brush.verticalGradient(
-                        0.0f to Color(0xF010253D),
-                        0.28f to Color(0xF50A192E),
-                        0.68f to Color(0xF20D376E),
-                        0.92f to Color(0xF5115BBF),
-                        1.0f to Color(0xF50A2247)
+                        0.0f to Color(0xF80A0618),
+                        0.26f to Color(0xFC070512),
+                        0.68f to Color(0xFC0B071D),
+                        0.90f to Color(0xFA101032),
+                        1.0f to Color(0xFA070A1D)
                     ),
-                    cornerRadius = corner
+                    cornerRadius = capR
                 )
 
-                // 中下部强钴蓝焦散折射光池
-                val floorCenter = Offset(w * 0.5f, h * 0.82f)
+                // 内部纵向紫/洋红/电蓝流光内核雾晕（仅留在管腔内中央，呈现饱满立体体光）
+                drawOval(
+                    brush = Brush.radialGradient(
+                        colors = listOf(
+                            Color(0x70E82EC8),
+                            Color(0x5C8430FF),
+                            Color(0x361D6BFF),
+                            Color.Transparent
+                        ),
+                        center = Offset(w * 0.5f, h * 0.54f),
+                        radius = h * 0.44f
+                    ),
+                    topLeft = Offset(w * 0.08f, h * 0.12f),
+                    size = Size(w * 0.84f, h * 0.78f)
+                )
+
+                // 底部上升流光聚焦点（激发底部粒子向上冲击感）
                 drawCircle(
                     brush = Brush.radialGradient(
-                        colors = listOf(Color(0x9C28A8FF), Color(0x471565D8), Color.Transparent),
-                        center = floorCenter,
-                        radius = w * 0.72f
+                        colors = listOf(
+                            Color(0x9C38D8FF),
+                            Color(0x6CE838CE),
+                            Color.Transparent
+                        ),
+                        center = Offset(w * 0.5f, h * 0.85f),
+                        radius = w * 0.76f
                     ),
-                    radius = w * 0.72f,
-                    center = floorCenter
-                )
-
-                // 左右立体柱状玻璃反光肋条
-                drawRoundRect(
-                    brush = Brush.horizontalGradient(
-                        0.0f to Color(0x47BCEAFF),
-                        0.07f to Color(0x1E65B9FF),
-                        0.15f to Color.Transparent,
-                        0.85f to Color.Transparent,
-                        0.93f to Color(0x1E65B9FF),
-                        1.0f to Color(0x42B5E8FF)
-                    ),
-                    cornerRadius = corner
+                    radius = w * 0.76f,
+                    center = Offset(w * 0.5f, h * 0.85f)
                 )
             }
 
-            // 内部 84 颗高速流动蓝色星链粒子（两态一致通透流动）
+            // 管腔内部 580 细 + 78 大流光高速向上冲粒子（严格裁剪于玻璃内壁中）
             BlueConstellationParticlesCanvas(
-                particleCount = 84,
                 reduceMotion = reduceMotion,
-                referenceWidthDp = 340f,
-                linkMaxDistDp = 52f,
-                intensity = 1.15f,
-                radiusScale = 1.05f,
+                isHeroTube = true,
+                intensity = 1.24f,
+                radiusScale = 1.0f,
+                columnConcentrated = true,
                 modifier = Modifier
                     .fillMaxSize()
-                    .padding(horizontal = 5.dp, vertical = 14.dp)
-                    .clip(RoundedCornerShape(28.dp))
+                    .padding(horizontal = 4.dp, vertical = 5.dp)
+                    .clip(CircleShape)
             )
 
-            // 前景玻璃立体盖环、内嵌管壁倒角与表层反光高光
+            // 前景 3D 厚壁石英玻璃管壳：左右高光折光肋条、顶部/底部半球盖弧高光与双层紫青立体外缘
             Canvas(modifier = Modifier.fillMaxSize()) {
                 val w = size.width
                 val h = size.height
-                val outerR = 34.dp.toPx()
-                val corner = CornerRadius(outerR, outerR)
-                val ringH = (h * 0.14f).coerceAtLeast(22.dp.toPx())
+                val r = w * 0.5f
+                val capCorner = CornerRadius(r, r)
 
-                // 顶部实体立体玻璃上环口
+                // 圆柱左右壁厚立体折光纵肋（左侧粉紫高光白 + 右侧电青高光白）
                 drawRoundRect(
-                    brush = Brush.verticalGradient(
-                        0.0f to Color(0x88AEDFFF),
-                        0.45f to Color(0x3D4C8CD4),
-                        1.0f to Color(0x0D194275)
-                    ),
-                    size = Size(w, ringH),
-                    cornerRadius = CornerRadius(outerR, outerR)
-                )
-                drawLine(
                     brush = Brush.horizontalGradient(
-                        listOf(Color.Transparent, Color(0xB8CFEFFF), Color.Transparent)
+                        0.0f to Color(0x5EECE4FF),
+                        0.08f to Color(0x94FFFFFF),
+                        0.15f to Color(0x3DB97CFF),
+                        0.26f to Color.Transparent,
+                        0.74f to Color.Transparent,
+                        0.85f to Color(0x4745E2FF),
+                        0.92f to Color(0x9CFFFFFF),
+                        1.0f to Color(0x6678E6FF)
                     ),
-                    start = Offset(outerR * 0.55f, ringH * 0.92f),
-                    end = Offset(w - outerR * 0.55f, ringH * 0.92f),
-                    strokeWidth = 1.1.dp.toPx()
+                    cornerRadius = capCorner
                 )
 
-                // 底部实体玻璃底座环口
-                drawRoundRect(
+                // 上半球封头石英弯月玻璃高光弧
+                val topCapInset = 5.5.dp.toPx()
+                drawArc(
                     brush = Brush.verticalGradient(
-                        0.0f to Color(0x142A6AB8),
-                        0.55f to Color(0x6649A7FF),
-                        1.0f to Color(0x889FE4FF)
+                        listOf(Color(0xD6F6EEFF), Color(0x3D9D7EFF), Color.Transparent)
                     ),
-                    topLeft = Offset(0f, h - ringH),
-                    size = Size(w, ringH),
-                    cornerRadius = CornerRadius(outerR, outerR)
+                    startAngle = 198f,
+                    sweepAngle = 144f,
+                    useCenter = false,
+                    topLeft = Offset(topCapInset, topCapInset),
+                    size = Size(w - topCapInset * 2f, w - topCapInset * 2f),
+                    style = Stroke(width = 2.4.dp.toPx(), cap = StrokeCap.Round)
                 )
 
-                // 内嵌 4dp 实体玻璃内壁描边
+                // 下半球封头电青/洋红玻璃底边焦散反射弧
+                val botCapInset = 5.dp.toPx()
+                drawArc(
+                    brush = Brush.horizontalGradient(
+                        listOf(Color(0x94E88DFF), Color(0xD64BEBFF), Color(0xA652D8FF))
+                    ),
+                    startAngle = 16f,
+                    sweepAngle = 148f,
+                    useCenter = false,
+                    topLeft = Offset(botCapInset, h - w + botCapInset),
+                    size = Size(w - botCapInset * 2f, w - botCapInset * 2f),
+                    style = Stroke(width = 2.4.dp.toPx(), cap = StrokeCap.Round)
+                )
+
+                // 内缩 4dp 实体玻璃内壁描边（塑造厚玻璃壁纵深）
                 val bevelInset = 4.dp.toPx()
+                val innerW = (w - bevelInset * 2f).coerceAtLeast(4f)
+                val innerH = (h - bevelInset * 2f).coerceAtLeast(4f)
                 drawRoundRect(
                     brush = Brush.verticalGradient(
-                        0.0f to Color(0x9E9EE4FF),
-                        0.5f to Color(0x3858A8EB),
-                        1.0f to Color(0x807CD8FF)
+                        0.0f to Color(0xB8F0E8FF),
+                        0.48f to Color(0x478A6FFF),
+                        1.0f to Color(0xA64AE4FF)
                     ),
                     topLeft = Offset(bevelInset, bevelInset),
-                    size = Size(w - bevelInset * 2f, h - bevelInset * 2f),
-                    cornerRadius = CornerRadius(outerR - bevelInset * 0.6f, outerR - bevelInset * 0.6f),
-                    style = Stroke(width = 1.dp.toPx())
+                    size = Size(innerW, innerH),
+                    cornerRadius = CornerRadius(innerW * 0.5f, innerW * 0.5f),
+                    style = Stroke(width = 1.05.dp.toPx())
                 )
 
-                // 外层立体玻璃主外框
+                // 最外层高饱和紫-青-粉白立体玻璃轮廓边框
                 drawRoundRect(
                     brush = Brush.linearGradient(
-                        0.0f to Color(0xE89CE4FF),
-                        0.5f to Color(0x9452AEFF),
-                        1.0f to Color(0xC976D1FF)
+                        0.0f to Color(0xEBF2EBFF),
+                        0.32f to Color(0xC29F5CFF),
+                        0.68f to Color(0xCCDA45DF),
+                        1.0f to Color(0xE64BE8FF)
                     ),
-                    cornerRadius = corner,
-                    style = Stroke(width = 1.6.dp.toPx())
+                    cornerRadius = capCorner,
+                    style = Stroke(width = 1.75.dp.toPx())
                 )
             }
         }
 
-        // 3. 透明无障碍触控热区（点击真实触发连接/断开，不覆盖任何视觉或图标文字）
+        // 2. 透明无障碍触控热区（仅响应点击触发真实连接/断开，内部不绘制任何图标或文字）
         val interactionSource = remember { MutableInteractionSource() }
         Box(
             modifier = Modifier
-                .size(width = chamberWidth, height = chamberHeight)
-                .clip(RoundedCornerShape(34.dp))
+                .size(width = tubeWidth + 24.dp, height = tubeHeight)
+                .clip(CircleShape)
                 .semantics {
                     role = Role.Button
                     contentDescription = "玻璃试管主体，点击切换连接"
@@ -480,17 +476,17 @@ private fun TrafficSummaryCard(
     val isTransitioning =
         runtimeState.status == VpnStatus.CONNECTING || runtimeState.status == VpnStatus.DISCONNECTING
     val statusDotColor = when (runtimeState.status) {
-        VpnStatus.CONNECTED -> Color(0xFF47E5FF)
+        VpnStatus.CONNECTED -> Color(0xFF4BE8FF)
         VpnStatus.CONNECTING, VpnStatus.DISCONNECTING -> WarningAmber
         VpnStatus.ERROR -> ErrorRed
-        VpnStatus.DISCONNECTED -> Color(0xFF5D7694)
+        VpnStatus.DISCONNECTED -> Color(0xFF8C72D8)
     }
     val statusHeadline = when (runtimeState.status) {
         VpnStatus.CONNECTED -> "通道已开启 · ${FormatUtils.formatDuration(elapsedMs)}"
         VpnStatus.CONNECTING -> "正在建立通道..."
         VpnStatus.DISCONNECTING -> "正在断开通道..."
         VpnStatus.ERROR -> "通道连接异常"
-        VpnStatus.DISCONNECTED -> "待机中 · 未连接"
+        VpnStatus.DISCONNECTED -> "待命中 · 未连接"
     }
 
     LiquidGlassCard(
@@ -499,7 +495,6 @@ private fun TrafficSummaryCard(
             .heightIn(min = if (compactHeight) 86.dp else 94.dp),
         cornerRadius = 24.dp,
         isActive = isConnected || isTransitioning,
-        particleCount = 26,
         seedOffsetSec = 0.3f,
         onClick = onClick
     ) {
@@ -523,7 +518,7 @@ private fun TrafficSummaryCard(
                     text = statusHeadline,
                     fontSize = 11.sp,
                     fontWeight = if (isConnected) FontWeight.SemiBold else FontWeight.Medium,
-                    color = if (isConnected) Color(0xFFB5ECFF) else Color(0xFF8CA4BE),
+                    color = if (isConnected) Color(0xFFBFF5FF) else Color(0xFFB5A9D8),
                     maxLines = 1
                 )
             }
@@ -601,7 +596,7 @@ private fun TrafficColumn(
             Text(
                 text = label,
                 fontSize = 13.sp,
-                color = Color(0xFFC0D4EA)
+                color = Color(0xFFD5CEFA)
             )
         }
         Spacer(modifier = Modifier.height(2.dp))
@@ -617,7 +612,7 @@ private fun TrafficColumn(
         Text(
             text = "总计 $total",
             fontSize = 11.sp,
-            color = Color(0xFF9AABC0),
+            color = Color(0xFFA89ED2),
             maxLines = 1
         )
     }
@@ -689,7 +684,7 @@ private fun CurrentNodeCard(
                         Text(
                             text = selectedNode?.badgeText() ?: "导入配置",
                             fontSize = 11.sp,
-                            color = Color(0xFFAEE2FF),
+                            color = Color(0xFFD8D0FF),
                             maxLines = 1
                         )
                     }
@@ -701,11 +696,11 @@ private fun CurrentNodeCard(
                             else -> "${selectedNode.latencyMs} ms"
                         }
                         val latencyColor = when {
-                            isTestingLatency -> Color(0xFFB6C6D9)
-                            selectedNode.latencyMs == null -> Color(0xFFB6C6D9)
+                            isTestingLatency -> Color(0xFFC2B7E8)
+                            selectedNode.latencyMs == null -> Color(0xFFC2B7E8)
                             selectedNode.latencyMs <= 0L -> Color(0xFFFCA5A5)
                             selectedNode.latencyMs >= 500L -> WarningAmber
-                            else -> Color(0xFFB6C6D9)
+                            else -> Color(0xFFC2B7E8)
                         }
                         Text(
                             text = latencyText,
@@ -735,7 +730,7 @@ private fun CurrentNodeCard(
             Icon(
                 imageVector = Icons.Rounded.ChevronRight,
                 contentDescription = "选择节点",
-                tint = Color(0xFFB7D4F2),
+                tint = Color(0xFFD2C7FA),
                 modifier = Modifier.size(20.dp)
             )
         }
@@ -750,7 +745,7 @@ private fun SpeedPillButton(
     onClick: () -> Unit
 ) {
     val reduceMotion = rememberReduceMotionState()
-    val shape = RoundedCornerShape(22.dp)
+    val shape = CircleShape
     val transition = rememberInfiniteTransition(label = "speedPulse")
     val dotAlpha by transition.animateFloat(
         initialValue = 1f,
@@ -772,7 +767,7 @@ private fun SpeedPillButton(
                     cornerRadiusDp = 21.dp,
                     active = isLoading,
                     elevated = true,
-                    accentBorder = Color(0xD165ACF7),
+                    accentBorder = Color(0xD69D8CFF),
                     innerBevelInsetDp = 2.dp
                 )
             }
@@ -780,12 +775,10 @@ private fun SpeedPillButton(
         contentAlignment = Alignment.Center
     ) {
         BlueConstellationParticlesCanvas(
-            particleCount = 14,
             reduceMotion = reduceMotion,
-            referenceWidthDp = 190f,
-            linkMaxDistDp = 34f,
+            densityMultiplier = 0.72f,
             timeOffsetSec = 2.2f,
-            intensity = if (isLoading) 1.15f else 0.85f,
+            intensity = if (isLoading) 1.15f else 0.88f,
             radiusScale = 0.85f,
             modifier = Modifier.matchParentSize()
         )
@@ -800,7 +793,7 @@ private fun SpeedPillButton(
                         .size(6.dp)
                         .alpha(dotAlpha)
                         .clip(CircleShape)
-                        .background(Color(0xFF58C5FF))
+                        .background(Color(0xFF4BE8FF))
                 )
             } else {
                 Canvas(modifier = Modifier.size(16.dp)) {
@@ -808,7 +801,7 @@ private fun SpeedPillButton(
                     val sy = size.height / 20f
                     val stroke = Stroke(width = 1.75f * sx, cap = StrokeCap.Round, join = StrokeJoin.Round)
                     drawArc(
-                        color = Color(0xFFB6E9FF),
+                        color = Color(0xFFBDF9FF),
                         startAngle = 152f,
                         sweepAngle = 236f,
                         useCenter = false,
@@ -817,20 +810,20 @@ private fun SpeedPillButton(
                         style = stroke
                     )
                     drawLine(
-                        color = Color(0xFFB6E9FF),
+                        color = Color(0xFFBDF9FF),
                         start = Offset(10f * sx, 10f * sy),
                         end = Offset(14f * sx, 6f * sy),
                         strokeWidth = stroke.width,
                         cap = StrokeCap.Round
                     )
                     drawLine(
-                        color = Color(0xFFB6E9FF),
+                        color = Color(0xFFBDF9FF),
                         start = Offset(4f * sx, 16f * sy),
                         end = Offset(16f * sx, 16f * sy),
                         strokeWidth = stroke.width,
                         cap = StrokeCap.Round
                     )
-                    drawCircle(color = Color(0xFFB6E9FF), radius = 1.15f * sx, center = Offset(10f * sx, 10f * sy))
+                    drawCircle(color = Color(0xFFFFDDF6), radius = 1.15f * sx, center = Offset(10f * sx, 10f * sy))
                 }
             }
             Spacer(modifier = Modifier.width(6.dp))
@@ -885,7 +878,7 @@ private fun NodeSelectorBottomSheet(
                                 cornerRadiusDp = 28.dp,
                                 active = false,
                                 elevated = true,
-                                accentBorder = Color(0x9E64ADE4),
+                                accentBorder = Color(0xB39E8EFF),
                                 innerBevelInsetDp = 3.dp
                             )
                         }
@@ -896,11 +889,9 @@ private fun NodeSelectorBottomSheet(
                         )
                 ) {
                     BlueConstellationParticlesCanvas(
-                        particleCount = 54,
                         reduceMotion = reduceMotion,
-                        referenceWidthDp = 410f,
-                        linkMaxDistDp = 50f,
-                        intensity = 0.65f,
+                        densityMultiplier = 0.52f,
+                        intensity = 0.62f,
                         modifier = Modifier.matchParentSize()
                     )
                     Column(
@@ -914,7 +905,7 @@ private fun NodeSelectorBottomSheet(
                                 .align(Alignment.CenterHorizontally)
                                 .size(width = 40.dp, height = 4.dp)
                                 .clip(CircleShape)
-                                .background(Color(0xA67CC8FF))
+                                .background(Color(0xB89F8CFF))
                         )
                         Spacer(modifier = Modifier.height(14.dp))
                         Row(
@@ -952,11 +943,11 @@ private fun NodeSelectorBottomSheet(
                                     subtitle = "您可以从剪贴板导入分享链接、扫描二维码或添加订阅链接。"
                                 ) {
                                     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                                        GlassSecondaryButton(
+                                            GlassSecondaryButton(
                                             onClick = onImportClipboard,
                                             modifier = Modifier.fillMaxWidth()
                                         ) {
-                                            Icon(Icons.Rounded.ContentPasteGo, null, tint = Color(0xFF79D1FF), modifier = Modifier.size(17.dp))
+                                            Icon(Icons.Rounded.ContentPasteGo, null, tint = Color(0xFF4BE8FF), modifier = Modifier.size(17.dp))
                                             Spacer(modifier = Modifier.width(8.dp))
                                             Text("从剪贴板导入")
                                         }
@@ -964,7 +955,7 @@ private fun NodeSelectorBottomSheet(
                                             onClick = onOpenQrScan,
                                             modifier = Modifier.fillMaxWidth()
                                         ) {
-                                            Icon(Icons.Rounded.QrCodeScanner, null, tint = Color(0xFF79D1FF), modifier = Modifier.size(17.dp))
+                                            Icon(Icons.Rounded.QrCodeScanner, null, tint = Color(0xFF4BE8FF), modifier = Modifier.size(17.dp))
                                             Spacer(modifier = Modifier.width(8.dp))
                                             Text("扫描二维码导入")
                                         }
@@ -972,7 +963,7 @@ private fun NodeSelectorBottomSheet(
                                             onClick = onOpenAddSub,
                                             modifier = Modifier.fillMaxWidth()
                                         ) {
-                                            Icon(Icons.Rounded.AddLink, null, tint = Color(0xFF79D1FF), modifier = Modifier.size(17.dp))
+                                            Icon(Icons.Rounded.AddLink, null, tint = Color(0xFF4BE8FF), modifier = Modifier.size(17.dp))
                                             Spacer(modifier = Modifier.width(8.dp))
                                             Text("添加订阅链接")
                                         }
@@ -985,8 +976,7 @@ private fun NodeSelectorBottomSheet(
                                         modifier = Modifier.fillMaxWidth(),
                                         cornerRadius = 21.dp,
                                         isActive = active,
-                                        accentBorder = if (active) Color(0xE646B5FF) else null,
-                                        particleCount = 20,
+                                        accentBorder = if (active) Color(0xEB9F5EFF) else null,
                                         seedOffsetSec = idx * 0.6f,
                                         onClick = { onSelectNode(node.id) }
                                     ) {
@@ -1015,7 +1005,7 @@ private fun NodeSelectorBottomSheet(
                                                 Text(
                                                     text = "${node.badgeText()} · ${node.displayAddressSummary()} · $pingText",
                                                     fontSize = 12.sp,
-                                                    color = Color(0xFF9EAFC3),
+                                                    color = Color(0xFFA99FD2),
                                                     maxLines = 1,
                                                     overflow = TextOverflow.Ellipsis
                                                 )
@@ -1034,6 +1024,13 @@ private fun NodeSelectorBottomSheet(
                                                     },
                                                 contentAlignment = Alignment.Center
                                             ) {
+                                                BlueConstellationParticlesCanvas(
+                                                    reduceMotion = reduceMotion,
+                                                    densityMultiplier = 0.95f,
+                                                    intensity = if (active) 1.12f else 0.78f,
+                                                    radiusScale = 0.62f,
+                                                    modifier = Modifier.matchParentSize()
+                                                )
                                                 if (active) {
                                                     Icon(
                                                         imageVector = Icons.Rounded.Check,
@@ -1054,7 +1051,7 @@ private fun NodeSelectorBottomSheet(
                             onClick = onOpenNodesTab,
                             modifier = Modifier.fillMaxWidth()
                         ) {
-                            Icon(Icons.Rounded.Tune, contentDescription = null, tint = Color(0xFF79D1FF), modifier = Modifier.size(17.dp))
+                            Icon(Icons.Rounded.Tune, contentDescription = null, tint = Color(0xFF4BE8FF), modifier = Modifier.size(17.dp))
                             Spacer(modifier = Modifier.width(8.dp))
                             Text("管理全部节点与订阅", fontWeight = FontWeight.SemiBold)
                         }
@@ -1068,7 +1065,7 @@ private fun NodeSelectorBottomSheet(
 @Composable
 fun LatencyBadge(latencyMs: Long?) {
     val (text, color) = when {
-        latencyMs == null -> "未测速" to Color(0xFF9FB2C9)
+        latencyMs == null -> "未测速" to ProtoTextMuted
         latencyMs <= 0 -> "超时" to ErrorRed
         latencyMs < 200 -> "$latencyMs ms" to ConnectedGreen
         latencyMs < 500 -> "$latencyMs ms" to WarningAmber

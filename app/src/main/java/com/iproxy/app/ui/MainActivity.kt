@@ -17,8 +17,6 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.navigationBarsPadding
@@ -343,23 +341,21 @@ fun IProxyAppRoot(viewModel: MainViewModel = viewModel()) {
                                                 cornerRadiusDp = 20.dp,
                                                 active = false,
                                                 elevated = true,
-                                                accentBorder = Color(0xA66EC3FF),
+                                                accentBorder = Color(0xBD9F8EFF),
                                                 innerBevelInsetDp = 2.dp
                                             )
                                         },
                                     contentAlignment = Alignment.Center
                                 ) {
                                     BlueConstellationParticlesCanvas(
-                                        particleCount = 18,
                                         reduceMotion = reduceMotion,
-                                        referenceWidthDp = 340f,
-                                        linkMaxDistDp = 40f,
+                                        densityMultiplier = 0.65f,
                                         intensity = 0.80f,
                                         modifier = Modifier.matchParentSize()
                                     )
                                     Text(
                                         text = data.visuals.message,
-                                        color = Color(0xFFE8F5FF),
+                                        color = Color(0xFFF4EFFF),
                                         fontSize = 12.sp,
                                         textAlign = TextAlign.Center,
                                         modifier = Modifier.padding(horizontal = 16.dp, vertical = 10.dp)

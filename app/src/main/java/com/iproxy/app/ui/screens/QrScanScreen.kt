@@ -29,7 +29,6 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.rounded.PhotoLibrary
 import androidx.compose.material3.Icon
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
@@ -121,10 +120,8 @@ fun QrScanScreen(
                 }
         ) {
             BlueConstellationParticlesCanvas(
-                particleCount = 22,
                 reduceMotion = reduceMotion,
-                referenceWidthDp = 360f,
-                linkMaxDistDp = 42f,
+                densityMultiplier = 0.62f,
                 intensity = 0.72f,
                 modifier = Modifier.matchParentSize()
             )
@@ -222,7 +219,7 @@ fun QrScanScreen(
                     Canvas(modifier = Modifier.fillMaxSize()) {
                         val len = 34.dp.toPx()
                         val stroke = 3.2.dp.toPx()
-                        val c = Color(0xFF7BE0FF)
+                        val c = Color(0xFF4BE8FF)
                         // 左上
                         drawLine(c, Offset(0f, 0f), Offset(len, 0f), strokeWidth = stroke, cap = StrokeCap.Round)
                         drawLine(c, Offset(0f, 0f), Offset(0f, len), strokeWidth = stroke, cap = StrokeCap.Round)
