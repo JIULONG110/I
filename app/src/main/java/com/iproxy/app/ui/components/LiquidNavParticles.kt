@@ -452,12 +452,17 @@ private fun rememberStandaloneParticleClockState(reduceMotion: Boolean): State<F
         val callback = object : Choreographer.FrameCallback {
             override fun doFrame(frameTimeNanos: Long) {
                 if (!active) return
+                val frameIntervalMs = if (lastNanos != 0L) (frameTimeNanos - lastNanos) / 1_000_000L else 0L
                 if (lastNanos != 0L) {
                     val deltaSec = ((frameTimeNanos - lastNanos) / 1_000_000_000f).coerceIn(0f, 0.05f)
                     elapsedState.floatValue += deltaSec
                 }
                 lastNanos = frameTimeNanos
-                choreographer.postFrameCallback(this)
+                if (frameIntervalMs > 28L) {
+                    choreographer.postFrameCallbackDelayed(this, 16L)
+                } else {
+                    choreographer.postFrameCallback(this)
+                }
             }
         }
         choreographer.postFrameCallback(callback)

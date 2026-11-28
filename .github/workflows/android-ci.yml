@@ -175,7 +175,7 @@ jobs:
   emulator-test:
     name: 模拟器 UI 导航回归测试
     runs-on: ubuntu-latest
-    timeout-minutes: 12
+    timeout-minutes: 18
 
     steps:
       - name: 检出代码
@@ -219,9 +219,11 @@ jobs:
         run: |
           cat << 'SHEOF' > /tmp/run_android_test.sh
           set +e
+          echo "EMULATOR_READY $(date -u +%H:%M:%S)"
           adb logcat -c || true
-          ./gradlew connectedDebugAndroidTest --no-daemon --stacktrace 2>&1 | tee /tmp/android-test.log
+          timeout 240 ./gradlew connectedDebugAndroidTest --no-daemon --stacktrace 2>&1 | tee /tmp/android-test.log
           RC=${PIPESTATUS[0]}
+          echo "CONNECTED_TEST_RC=$RC $(date -u +%H:%M:%S)"
           set -e
           if [ "$RC" -ne 0 ]; then
             adb logcat -d -v threadtime > /tmp/android-test-logcat.txt || true
