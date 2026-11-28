@@ -2,6 +2,8 @@ package com.iproxy.app
 
 import android.Manifest
 import android.os.Build
+import android.os.ParcelFileDescriptor
+import android.provider.Settings
 import androidx.compose.ui.test.hasClickAction
 import androidx.compose.ui.test.hasContentDescription
 import androidx.compose.ui.test.hasText
@@ -26,25 +28,49 @@ class NavigationRegressionTest {
 
     private val composeRule = createAndroidComposeRule<MainActivity>()
 
-    private val grantNotificationPermissionRule = TestRule { base, _ ->
+    private val grantPermissionsAndPauseContinuousAnimRule = TestRule { base, _ ->
         object : Statement() {
             override fun evaluate() {
+                val instrumentation = InstrumentationRegistry.getInstrumentation()
+                val uiAutomation = instrumentation.uiAutomation
+                val resolver = instrumentation.targetContext.contentResolver
+                val previousAnimScale = runCatching {
+                    Settings.Global.getFloat(resolver, Settings.Global.ANIMATOR_DURATION_SCALE, 1f)
+                }.getOrDefault(1f)
+
+                fun runShellSync(cmd: String) {
+                    runCatching {
+                        val pfd = uiAutomation.executeShellCommand(cmd)
+                        ParcelFileDescriptor.AutoCloseInputStream(pfd).use { it.readBytes() }
+                    }
+                }
+
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
                     runCatching {
-                        val instrumentation = InstrumentationRegistry.getInstrumentation()
-                        instrumentation.uiAutomation.grantRuntimePermission(
+                        uiAutomation.grantRuntimePermission(
                             instrumentation.targetContext.packageName,
                             Manifest.permission.POST_NOTIFICATIONS
                         )
                     }
                 }
-                base.evaluate()
+                if (previousAnimScale > 0f) {
+                    runShellSync("settings put global animator_duration_scale 0")
+                }
+                try {
+                    base.evaluate()
+                } finally {
+                    if (previousAnimScale > 0f) {
+                        runShellSync("settings put global animator_duration_scale $previousAnimScale")
+                    }
+                }
             }
         }
     }
 
     @get:Rule
-    val ruleChain: RuleChain = RuleChain.outerRule(grantNotificationPermissionRule).around(composeRule)
+    val ruleChain: RuleChain = RuleChain
+        .outerRule(grantPermissionsAndPauseContinuousAnimRule)
+        .around(composeRule)
 
     private fun dismissOptionalUpdateDialog() {
         val later = composeRule.onAllNodesWithText("暂不更新").fetchSemanticsNodes()
@@ -84,7 +110,9 @@ class NavigationRegressionTest {
         composeRule.onNode(hasText("暂无节点", substring = true)).performClick()
         composeRule.waitForIdle()
         Espresso.pressBack()
-        composeRule.waitForIdle()
+        composeRule.waitUntil(timeoutMillis = 5_000L) {
+            composeRule.onAllNodesWithText("选择节点").fetchSemanticsNodes().isEmpty()
+        }
 
         // 2. 节点页：打开与操作筛选 / 添加菜单与弹窗
         clickNavTab("节点")
@@ -96,7 +124,9 @@ class NavigationRegressionTest {
         composeRule.onNodeWithContentDescription("添加节点或订阅").performClick()
         composeRule.waitForIdle()
         Espresso.pressBack()
-        composeRule.waitForIdle()
+        composeRule.waitUntil(timeoutMillis = 5_000L) {
+            composeRule.onAllNodesWithText("从剪贴板导入分享链接").fetchSemanticsNodes().isEmpty()
+        }
 
         // 3. 分流页：切换分流规则 / 运行日志与开关点击
         clickNavTab("分流")
@@ -120,6 +150,10 @@ class NavigationRegressionTest {
         composeRule.onNode(hasText("FakeDNS 加速", substring = true)).performClick()
         composeRule.waitForIdle()
         composeRule.onNode(hasText("FakeDNS 加速", substring = true)).performClick()
+        composeRule.waitForIdle()
+
+        // 先滚动到底部关于卡片，使上方的备份操作行位于悬浮底栏和 Snackbar 之上
+        composeRule.onNode(hasText("检查软件更新") and hasClickAction()).performScrollTo()
         composeRule.waitForIdle()
 
         composeRule.onNode(hasText("导出全部节点与配置备份")).performScrollTo().performClick()

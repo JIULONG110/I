@@ -38,6 +38,19 @@ import kotlin.math.min
 import kotlin.math.roundToInt
 import kotlin.math.sin
 
+private fun computePlasmaColorForMix(hueMix: Float): Color {
+    val m = hueMix.coerceIn(0f, 1f)
+    return when {
+        m < 0.28f -> lerp(DarkNavPalette.ParticleViolet, DarkNavPalette.ParticleMagenta, m / 0.28f)
+        m < 0.54f -> lerp(DarkNavPalette.ParticleMagenta, DarkNavPalette.ParticleElectricBlue, (m - 0.28f) / 0.26f)
+        m < 0.78f -> lerp(DarkNavPalette.ParticleElectricBlue, DarkNavPalette.ParticleCyan, (m - 0.54f) / 0.24f)
+        else -> lerp(DarkNavPalette.ParticleCyan, DarkNavPalette.ParticlePinkWhite, ((m - 0.78f) / 0.22f) * 0.68f)
+    }
+}
+
+private fun computeCoreColorForPreference(pref: Float): Color =
+    if (pref < 0.64f) DarkNavPalette.ParticlePinkWhite else DarkNavPalette.ParticleCyanWhite
+
 internal data class RisingParticleSpec(
     val baseX: Float,
     val baseY: Float,
@@ -53,7 +66,9 @@ internal data class RisingParticleSpec(
     val twinkleFreq: Float,
     val twinklePhase: Float,
     val corePreference: Float,
-    val isLarge: Boolean
+    val isLarge: Boolean,
+    val plasmaColor: Color = computePlasmaColorForMix(hueMix),
+    val coreColor: Color = computeCoreColorForPreference(corePreference)
 )
 
 internal data class ScaledParticleCounts(
@@ -222,21 +237,12 @@ internal object RisingTubeParticleField {
     /**
      * 粒子光谱映射：紫 (0..0.28) -> 洋红 (0.28..0.54) -> 电蓝 (0.54..0.78) -> 青色 (0.78..1.0)
      */
-    fun plasmaColorForMix(hueMix: Float): Color {
-        val m = hueMix.coerceIn(0f, 1f)
-        return when {
-            m < 0.28f -> lerp(DarkNavPalette.ParticleViolet, DarkNavPalette.ParticleMagenta, m / 0.28f)
-            m < 0.54f -> lerp(DarkNavPalette.ParticleMagenta, DarkNavPalette.ParticleElectricBlue, (m - 0.28f) / 0.26f)
-            m < 0.78f -> lerp(DarkNavPalette.ParticleElectricBlue, DarkNavPalette.ParticleCyan, (m - 0.54f) / 0.24f)
-            else -> lerp(DarkNavPalette.ParticleCyan, DarkNavPalette.ParticlePinkWhite, ((m - 0.78f) / 0.22f) * 0.68f)
-        }
-    }
+    fun plasmaColorForMix(hueMix: Float): Color = computePlasmaColorForMix(hueMix)
 
     /**
      * 内核亮芯颜色：约 65% 粉白发光星核、约 35% 亮青发光星核
      */
-    fun coreColorForPreference(pref: Float): Color =
-        if (pref < 0.64f) DarkNavPalette.ParticlePinkWhite else DarkNavPalette.ParticleCyanWhite
+    fun coreColorForPreference(pref: Float): Color = computeCoreColorForPreference(pref)
 
     /**
      * 根据真实控件 dp 面积等比例缩放细粒子与较大流光粒子数：
@@ -272,14 +278,15 @@ internal object RisingTubeParticleField {
         return ScaledParticleCounts(fineCount = fine, largeCount = large)
     }
 
-    fun sampleSpecAt(
+    internal inline fun sampleSpecValues(
         spec: RisingParticleSpec,
         elapsedSec: Float,
         timeOffsetSec: Float,
         ySpeedScale: Float,
         columnConcentrated: Boolean,
-        spreadFraction: Float = 0.88f
-    ): Triple<Float, Float, Float> {
+        spreadFraction: Float = 0.88f,
+        onSample: (normX: Float, normY: Float, alpha: Float) -> Unit
+    ) {
         val t = elapsedSec + timeOffsetSec
         val travel = (spec.baseY + t * spec.speedY * ySpeedScale)
         val wrapped = ((travel % TRACK_HEIGHT) + TRACK_HEIGHT) % TRACK_HEIGHT
@@ -302,7 +309,33 @@ internal object RisingTubeParticleField {
 
         val twinkle = 0.72f + 0.28f * sin(TWO_PI * spec.twinkleFreq * t + spec.twinklePhase)
         val alpha = (spec.brightness * edgeFade * twinkle).coerceIn(0f, 1f)
-        return Triple(normX, normY, alpha)
+        onSample(normX, normY, alpha)
+    }
+
+    fun sampleSpecAt(
+        spec: RisingParticleSpec,
+        elapsedSec: Float,
+        timeOffsetSec: Float,
+        ySpeedScale: Float,
+        columnConcentrated: Boolean,
+        spreadFraction: Float = 0.88f
+    ): Triple<Float, Float, Float> {
+        var rx = 0f
+        var ry = 0f
+        var ra = 0f
+        sampleSpecValues(
+            spec = spec,
+            elapsedSec = elapsedSec,
+            timeOffsetSec = timeOffsetSec,
+            ySpeedScale = ySpeedScale,
+            columnConcentrated = columnConcentrated,
+            spreadFraction = spreadFraction
+        ) { normX, normY, alpha ->
+            rx = normX
+            ry = normY
+            ra = alpha
+        }
+        return Triple(rx, ry, ra)
     }
 
     fun initialSnapshotTimeSec(): Float = DEFAULT_SNAPSHOT_SEC
@@ -367,16 +400,17 @@ internal object NavParticleField {
     ) {
         val count = particleCount.coerceIn(0, specs.size)
         for (i in 0 until count) {
-            val (nx, ny, a) = RisingTubeParticleField.sampleSpecAt(
+            RisingTubeParticleField.sampleSpecValues(
                 spec = specs[i],
                 elapsedSec = elapsedSec,
                 timeOffsetSec = timeOffsetSec,
                 ySpeedScale = ySpeedScale,
                 columnConcentrated = columnConcentrated
-            )
-            outNormX[i] = nx
-            outNormY[i] = ny
-            outAlpha[i] = a
+            ) { nx, ny, a ->
+                outNormX[i] = nx
+                outNormY[i] = ny
+                outAlpha[i] = a
+            }
         }
     }
 }
@@ -459,7 +493,7 @@ private fun rememberStandaloneParticleClockState(reduceMotion: Boolean): State<F
                 }
                 lastNanos = frameTimeNanos
                 if (frameIntervalMs > 28L) {
-                    choreographer.postFrameCallbackDelayed(this, 16L)
+                    choreographer.postFrameCallbackDelayed(this, 24L)
                 } else {
                     choreographer.postFrameCallback(this)
                 }
@@ -540,110 +574,110 @@ internal fun DrawScope.drawRisingPlasmaParticles(
     val largeLimit = counts.largeCount.coerceIn(0, largeSpecs.size)
     for (i in 0 until largeLimit) {
         val spec = largeSpecs[i]
-        val (nx, ny, rawAlpha) = RisingTubeParticleField.sampleSpecAt(
+        RisingTubeParticleField.sampleSpecValues(
             spec = spec,
             elapsedSec = elapsedSec,
             timeOffsetSec = timeOffsetSec,
             ySpeedScale = ySpeedScale,
             columnConcentrated = useColumn
-        )
-        if (rawAlpha <= 0.02f) continue
+        ) { nx, ny, rawAlpha ->
+            if (rawAlpha <= 0.02f) return@sampleSpecValues
 
-        val alpha = (rawAlpha * safeIntensity).coerceIn(0f, 1f)
-        val cx = nx * w
-        val cy = ny * h
-        val pos = Offset(cx, cy)
-        val rPx = spec.radiusDp.dp.toPx() * radiusScale
-        val plasma = RisingTubeParticleField.plasmaColorForMix(spec.hueMix)
-        val core = RisingTubeParticleField.coreColorForPreference(spec.corePreference)
+            val alpha = (rawAlpha * safeIntensity).coerceIn(0f, 1f)
+            val cx = nx * w
+            val cy = ny * h
+            val pos = Offset(cx, cy)
+            val rPx = spec.radiusDp.dp.toPx() * radiusScale
+            val plasma = spec.plasmaColor
+            val core = spec.coreColor
 
-        // 柔和上冲星尾（安全钳制，避免矮控件高度下限大于上限触发 coerceIn IllegalArgumentException）
-        val tailPx = RisingTubeParticleField.safeLargeTailPx(
-            trailFactor = spec.trailFactor,
-            containerHeightPx = h,
-            speedY = spec.speedY,
-            radiusPx = rPx
-        )
-        drawLine(
-            color = plasma.copy(alpha = (alpha * 0.26f).coerceAtMost(0.36f)),
-            start = Offset(cx, cy + tailPx),
-            end = pos,
-            strokeWidth = (rPx * 0.85f).coerceAtLeast(1.0f),
-            cap = StrokeCap.Round
-        )
+            // 柔和上冲星尾（安全钳制，避免矮控件高度下限大于上限触发 coerceIn IllegalArgumentException）
+            val tailPx = RisingTubeParticleField.safeLargeTailPx(
+                trailFactor = spec.trailFactor,
+                containerHeightPx = h,
+                speedY = spec.speedY,
+                radiusPx = rPx
+            )
+            drawLine(
+                color = plasma.copy(alpha = (alpha * 0.26f).coerceAtMost(0.36f)),
+                start = Offset(cx, cy + tailPx),
+                end = pos,
+                strokeWidth = (rPx * 0.85f).coerceAtLeast(1.0f),
+                cap = StrokeCap.Round
+            )
 
-        // 层次 1：饱和紫/洋红/电蓝大外光晕
-        drawCircle(
-            color = plasma.copy(alpha = (alpha * 0.22f).coerceAtMost(0.32f)),
-            radius = rPx * 2.50f,
-            center = pos
-        )
-        // 层次 2：高饱和粒子本体
-        drawCircle(
-            color = plasma.copy(alpha = (alpha * 0.82f).coerceAtMost(0.90f)),
-            radius = rPx,
-            center = pos
-        )
-        // 层次 3：粉白或青色亮核
-        drawCircle(
-            color = core.copy(alpha = (alpha * 0.92f).coerceAtMost(0.96f)),
-            radius = (rPx * 0.45f).coerceAtLeast(0.85f),
-            center = pos
-        )
+            // 层次 1：饱和紫/洋红/电蓝大外光晕
+            drawCircle(
+                color = plasma.copy(alpha = (alpha * 0.22f).coerceAtMost(0.32f)),
+                radius = rPx * 2.50f,
+                center = pos
+            )
+            // 层次 2：高饱和粒子本体
+            drawCircle(
+                color = plasma.copy(alpha = (alpha * 0.82f).coerceAtMost(0.90f)),
+                radius = rPx,
+                center = pos
+            )
+            // 层次 3：粉白或青色亮核
+            drawCircle(
+                color = core.copy(alpha = (alpha * 0.92f).coerceAtMost(0.96f)),
+                radius = (rPx * 0.45f).coerceAtLeast(0.85f),
+                center = pos
+            )
+        }
     }
 
     // 3. 高速细微粒子（580 颗或按容器面积等比例缩减，含细腻流光火花与星点）
     val fineLimit = counts.fineCount.coerceIn(0, fineSpecs.size)
     for (i in 0 until fineLimit) {
         val spec = fineSpecs[i]
-        val (nx, ny, rawAlpha) = RisingTubeParticleField.sampleSpecAt(
+        RisingTubeParticleField.sampleSpecValues(
             spec = spec,
             elapsedSec = elapsedSec,
             timeOffsetSec = timeOffsetSec,
             ySpeedScale = ySpeedScale,
             columnConcentrated = useColumn
-        )
-        if (rawAlpha <= 0.03f) continue
+        ) { nx, ny, rawAlpha ->
+            if (rawAlpha <= 0.03f) return@sampleSpecValues
 
-        val alpha = (rawAlpha * safeIntensity).coerceIn(0f, 1f)
-        val cx = nx * w
-        val cy = ny * h
-        val pos = Offset(cx, cy)
-        val rPx = spec.radiusDp.dp.toPx() * radiusScale
-        val plasma = RisingTubeParticleField.plasmaColorForMix(spec.hueMix)
+            val alpha = (rawAlpha * safeIntensity).coerceIn(0f, 1f)
+            val cx = nx * w
+            val cy = ny * h
+            val pos = Offset(cx, cy)
+            val rPx = spec.radiusDp.dp.toPx() * radiusScale
+            val plasma = spec.plasmaColor
 
-        if (spec.trailFactor > 0.009f) {
-            val tailLen = RisingTubeParticleField.safeFineTailPx(
-                trailFactor = spec.trailFactor,
-                containerHeightPx = h,
-                speedY = spec.speedY
-            )
-            drawLine(
-                color = plasma.copy(alpha = (alpha * 0.56f).coerceAtMost(0.70f)),
-                start = Offset(cx, cy + tailLen),
-                end = pos,
-                strokeWidth = (rPx * 1.35f).coerceAtLeast(0.9f),
-                cap = StrokeCap.Round
-            )
-            val core = RisingTubeParticleField.coreColorForPreference(spec.corePreference)
-            drawCircle(
-                color = core.copy(alpha = (alpha * 0.90f).coerceAtMost(0.94f)),
-                radius = (rPx * 0.95f).coerceAtLeast(0.75f),
-                center = pos
-            )
-        } else {
-            drawCircle(
-                color = plasma.copy(alpha = (alpha * 0.84f).coerceAtMost(0.90f)),
-                radius = rPx,
-                center = pos
-            )
-            if (rawAlpha > 0.54f) {
-                val core = RisingTubeParticleField.coreColorForPreference(spec.corePreference)
+            if (spec.trailFactor > 0.009f) {
+                val tailLen = RisingTubeParticleField.safeFineTailPx(
+                    trailFactor = spec.trailFactor,
+                    containerHeightPx = h,
+                    speedY = spec.speedY
+                )
+                drawLine(
+                    color = plasma.copy(alpha = (alpha * 0.56f).coerceAtMost(0.70f)),
+                    start = Offset(cx, cy + tailLen),
+                    end = pos,
+                    strokeWidth = (rPx * 1.35f).coerceAtLeast(0.9f),
+                    cap = StrokeCap.Round
+                )
                 drawCircle(
-                    color = core.copy(alpha = (alpha * 0.88f).coerceAtMost(0.94f)),
-                    radius = (rPx * 0.56f).coerceAtLeast(0.65f),
+                    color = spec.coreColor.copy(alpha = (alpha * 0.90f).coerceAtMost(0.94f)),
+                    radius = (rPx * 0.95f).coerceAtLeast(0.75f),
                     center = pos
                 )
+            } else {
+                drawCircle(
+                    color = plasma.copy(alpha = (alpha * 0.84f).coerceAtMost(0.90f)),
+                    radius = rPx,
+                    center = pos
+                )
+                if (rawAlpha > 0.54f) {
+                    drawCircle(
+                        color = spec.coreColor.copy(alpha = (alpha * 0.88f).coerceAtMost(0.94f)),
+                        radius = (rPx * 0.56f).coerceAtLeast(0.65f),
+                        center = pos
+                    )
+                }
             }
         }
     }

@@ -224,6 +224,43 @@ jobs:
           timeout 240 ./gradlew connectedDebugAndroidTest --no-daemon --stacktrace 2>&1 | tee /tmp/android-test.log
           RC=${PIPESTATUS[0]}
           echo "CONNECTED_TEST_RC=$RC $(date -u +%H:%M:%S)"
+          if [ "$RC" -eq 0 ]; then
+            echo "Running live particle animation UI smoke check (animator_duration_scale=1)..."
+            adb shell pm grant com.iproxy.app android.permission.POST_NOTIFICATIONS >/dev/null 2>&1 || true
+            adb shell settings put global animator_duration_scale 1
+            adb logcat -c || true
+            adb shell am force-stop com.iproxy.app || true
+            adb shell am start -W -n com.iproxy.app/.ui.MainActivity >/dev/null 2>&1 || true
+            sleep 2
+            PID0=$(adb shell pidof com.iproxy.app | tr -d '\r')
+            if [ -n "$PID0" ]; then
+              WM=$(adb shell wm size | tr -d '\r' | sed -n 's/.*: \([0-9]*\)x\([0-9]*\).*/\1 \2/p' | head -n1)
+              W=$(echo "$WM" | awk '{print $1}')
+              H=$(echo "$WM" | awk '{print $2}')
+              W=${W:-1080}
+              H=${H:-2400}
+              # Click Hero Tube (triggers Snackbar compact particle canvas) and all 4 bottom tabs with animations ON
+              adb shell input tap $((W / 2)) $((H * 28 / 100))
+              sleep 1
+              adb shell input tap $((W * 38 / 100)) $((H * 92 / 100))
+              sleep 1
+              adb shell input tap $((W * 62 / 100)) $((H * 92 / 100))
+              sleep 1
+              adb shell input tap $((W * 82 / 100)) $((H * 92 / 100))
+              sleep 1
+              adb shell input tap $((W * 18 / 100)) $((H * 92 / 100))
+              sleep 1
+              PID1=$(adb shell pidof com.iproxy.app | tr -d '\r')
+              if [ "$PID1" != "$PID0" ] || [ -z "$PID1" ]; then
+                echo "Live animation smoke process exited: pid0=$PID0 pid1=$PID1"
+                RC=1
+              fi
+            else
+              echo "Live animation smoke failed to launch MainActivity"
+              RC=1
+            fi
+            adb shell settings put global animator_duration_scale 0 >/dev/null 2>&1 || true
+          fi
           set -e
           if [ "$RC" -ne 0 ]; then
             adb logcat -d -v threadtime > /tmp/android-test-logcat.txt || true
@@ -247,6 +284,9 @@ jobs:
                   if "FATAL EXCEPTION" in l or "AndroidRuntime: FATAL" in l or "TestRunner: failed" in l:
                       errs.append("\n".join(lines[i:i+25]))
                       break
+              tr = [l for l in lines if "TestRunner" in l or "iproxy" in l or "Compose" in l]
+              if tr:
+                  errs.append("LOGCAT_FILTER:\n" + "\n".join(tr[-30:]))
           except Exception:
               pass
           if not errs:
@@ -271,7 +311,7 @@ jobs:
           arch: x86_64
           profile: pixel_6
           emulator-options: -no-snapshot-save -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
-          disable-animations: false
+          disable-animations: true
           script: bash /tmp/run_android_test.sh
 
       - name: 上传测试报告
