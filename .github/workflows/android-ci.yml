@@ -175,7 +175,7 @@ jobs:
   emulator-test:
     name: 模拟器 UI 导航回归测试
     runs-on: ubuntu-latest
-    timeout-minutes: 18
+    timeout-minutes: 10
 
     steps:
       - name: 检出代码
@@ -220,37 +220,39 @@ jobs:
           cat << 'SHEOF' > /tmp/run_android_test.sh
           set +e
           echo "EMULATOR_READY $(date -u +%H:%M:%S)"
-          adb logcat -c || true
-          timeout 240 ./gradlew connectedDebugAndroidTest --no-daemon --stacktrace 2>&1 | tee /tmp/android-test.log
-          RC=${PIPESTATUS[0]}
+          echo "::notice::EMULATOR_SCRIPT_STARTED $(date -u +%H:%M:%S)"
+          timeout 15 adb logcat -c </dev/null >/dev/null 2>&1 || true
+          timeout -k 15 240 ./gradlew connectedDebugAndroidTest --no-daemon --stacktrace </dev/null >/tmp/android-test.log 2>&1
+          RC=${?}
+          cat /tmp/android-test.log || true
           echo "CONNECTED_TEST_RC=$RC $(date -u +%H:%M:%S)"
           if [ "$RC" -eq 0 ]; then
             echo "Running live particle animation UI smoke check (animator_duration_scale=1)..."
-            adb shell pm grant com.iproxy.app android.permission.POST_NOTIFICATIONS >/dev/null 2>&1 || true
-            adb shell settings put global animator_duration_scale 1
-            adb logcat -c || true
-            adb shell am force-stop com.iproxy.app || true
-            adb shell am start -W -n com.iproxy.app/.ui.MainActivity >/dev/null 2>&1 || true
+            timeout 15 adb shell pm grant com.iproxy.app android.permission.POST_NOTIFICATIONS </dev/null >/dev/null 2>&1 || true
+            timeout 15 adb shell settings put global animator_duration_scale 1 </dev/null || true
+            timeout 15 adb logcat -c </dev/null >/dev/null 2>&1 || true
+            timeout 15 adb shell am force-stop com.iproxy.app </dev/null || true
+            timeout 25 adb shell am start -W -n com.iproxy.app/.ui.MainActivity </dev/null >/dev/null 2>&1 || true
             sleep 2
-            PID0=$(adb shell pidof com.iproxy.app | tr -d '\r')
+            PID0=$(timeout 10 adb shell pidof com.iproxy.app </dev/null | tr -d '\r')
             if [ -n "$PID0" ]; then
-              WM=$(adb shell wm size | tr -d '\r' | sed -n 's/.*: \([0-9]*\)x\([0-9]*\).*/\1 \2/p' | head -n1)
+              WM=$(timeout 10 adb shell wm size </dev/null | tr -d '\r' | sed -n 's/.*: \([0-9]*\)x\([0-9]*\).*/\1 \2/p' | head -n1)
               W=$(echo "$WM" | awk '{print $1}')
               H=$(echo "$WM" | awk '{print $2}')
               W=${W:-1080}
               H=${H:-2400}
               # Click Hero Tube (triggers Snackbar compact particle canvas) and all 4 bottom tabs with animations ON
-              adb shell input tap $((W / 2)) $((H * 28 / 100))
+              timeout 10 adb shell input tap $((W / 2)) $((H * 28 / 100)) </dev/null
               sleep 1
-              adb shell input tap $((W * 38 / 100)) $((H * 92 / 100))
+              timeout 10 adb shell input tap $((W * 38 / 100)) $((H * 92 / 100)) </dev/null
               sleep 1
-              adb shell input tap $((W * 62 / 100)) $((H * 92 / 100))
+              timeout 10 adb shell input tap $((W * 62 / 100)) $((H * 92 / 100)) </dev/null
               sleep 1
-              adb shell input tap $((W * 82 / 100)) $((H * 92 / 100))
+              timeout 10 adb shell input tap $((W * 82 / 100)) $((H * 92 / 100)) </dev/null
               sleep 1
-              adb shell input tap $((W * 18 / 100)) $((H * 92 / 100))
+              timeout 10 adb shell input tap $((W * 18 / 100)) $((H * 92 / 100)) </dev/null
               sleep 1
-              PID1=$(adb shell pidof com.iproxy.app | tr -d '\r')
+              PID1=$(timeout 10 adb shell pidof com.iproxy.app </dev/null | tr -d '\r')
               if [ "$PID1" != "$PID0" ] || [ -z "$PID1" ]; then
                 echo "Live animation smoke process exited: pid0=$PID0 pid1=$PID1"
                 RC=1
@@ -259,11 +261,11 @@ jobs:
               echo "Live animation smoke failed to launch MainActivity"
               RC=1
             fi
-            adb shell settings put global animator_duration_scale 0 >/dev/null 2>&1 || true
+            timeout 10 adb shell settings put global animator_duration_scale 0 </dev/null >/dev/null 2>&1 || true
           fi
           set -e
           if [ "$RC" -ne 0 ]; then
-            adb logcat -d -v threadtime > /tmp/android-test-logcat.txt || true
+            timeout 20 adb logcat -d -v threadtime </dev/null >/tmp/android-test-logcat.txt || true
             python3 - << 'PYEOF'
           import glob, xml.etree.ElementTree as ET
           errs = []
@@ -300,6 +302,7 @@ jobs:
           PYEOF
             exit "$RC"
           fi
+          echo "::notice::ANDROID_TEST_AND_LIVE_SMOKE_PASSED"
           SHEOF
           chmod +x /tmp/run_android_test.sh
 
